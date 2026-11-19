@@ -65,7 +65,9 @@ function Access() {
   const [role, setRole] = useState<"manage" | "view">("manage");
   const [secret, setSecret] = useState<Secret | null>(null);
   const [revoke, setRevoke] = useState<{ id: string; label: string } | null>(null);
-  const message = secret && `${view.settings.name}\n${secret.url}\nMot de passe : ${secret.password}`;
+  const direct = secret && `${secret.url}#k=${encodeURIComponent(secret.password)}`;
+  const message = secret && `${view.settings.name}
+${direct}`;
 
   const create = async (e: FormEvent) => {
     e.preventDefault();
@@ -76,10 +78,10 @@ function Access() {
       {secret && (
         <div className="t-secret">
           <div><b>Accès « {secret.label} » créé</b><small>Le mot de passe ne sera plus affiché : envoie-le maintenant.</small></div>
-          <div className="t-url"><span className="ellipsis">{secret.url}</span></div>
-          <code>{secret.password}</code>
+          <div className="t-url"><span className="ellipsis">{direct}</span></div>
+          <small className="muted">Lien direct : un clic et on est connecté. Mot de passe seul si besoin : <code>{secret.password}</code></small>
           <div className="row gap">
-            <Button size="small" tone="primary" onClick={() => navigator.clipboard.writeText(message!).then(() => toast("Message copié"))}><Copy size={14} />Copier le message</Button>
+            <Button size="small" tone="primary" onClick={() => navigator.clipboard.writeText(message!).then(() => toast("Message copié"))}><Copy size={14} />Copier le lien</Button>
             {"share" in navigator && <Button size="small" onClick={() => navigator.share({ text: message! }).catch(() => {})}><Share2 size={14} />Envoyer</Button>}
             <Button size="small" tone="quiet" onClick={() => setSecret(null)}>Fermer</Button>
           </div>

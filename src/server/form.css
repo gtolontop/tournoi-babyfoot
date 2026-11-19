@@ -9,11 +9,13 @@ button, input, textarea { font: inherit; color: inherit; }
 a { color: inherit; }
 
 .meta { margin-bottom: 6px; font-size: 13px; font-weight: 500; color: var(--muted); }
-main { flex: 1; width: 100%; max-width: 520px; margin: 0 auto; padding: calc(20px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; }
+main { flex: 1; width: 100%; max-width: 520px; margin: 0 auto; padding: calc(20px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom)); display: flex; flex-direction: column; justify-content: center; }
 h1 { font-size: 30px; line-height: 1.1; font-weight: 600; letter-spacing: -.035em; }
 .lead { margin-top: 6px; color: var(--muted); }
 
-form { display: flex; flex-direction: column; gap: 24px; flex: 1; }
+form { display: flex; flex-direction: column; gap: 24px; }
+form > header, .done { text-align: center; }
+form > header .lead { margin-inline: auto; }
 fieldset { border: 0; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 legend, .label { font-size: 13px; font-weight: 500; color: var(--text-2); margin-bottom: 10px; padding: 0; display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 20px; }
 legend small, .label small { color: var(--faint); font-weight: 400; }
@@ -52,7 +54,7 @@ form:has(#m-duo:checked) .mate { display: grid; }
 
 .err { display: none; padding: 12px 14px; border-radius: 12px; background: var(--danger-soft); color: var(--danger); font-size: 14px; }
 .err.on { display: block; }
-.go { margin-top: auto; padding-top: 4px; display: flex; flex-direction: column; gap: 12px; }
+.go { padding-top: 4px; display: flex; flex-direction: column; gap: 12px; }
 .btn { appearance: none; display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; height: 54px; border: 0; border-radius: 14px; background: var(--ink); color: var(--on-ink); font-size: 16px; font-weight: 600; cursor: pointer; transition: transform .15s, opacity .15s; -webkit-tap-highlight-color: transparent; text-decoration: none; }
 .btn:active { transform: scale(.985); }
 .btn[disabled] { opacity: .5; }
@@ -62,17 +64,17 @@ form:has(#m-duo:checked) .mate { display: grid; }
 .foot a { color: var(--muted); text-underline-offset: 3px; }
 
 /* Après l'envoi */
-.done { display: flex; flex-direction: column; flex: 1; animation: up .35s cubic-bezier(.23, 1, .32, 1); }
-.done .mark { width: 44px; height: 44px; border-radius: 50%; background: var(--ink); color: var(--on-ink); display: grid; place-items: center; margin-bottom: 22px; }
+.done { display: flex; flex-direction: column; align-items: stretch; animation: up .35s cubic-bezier(.23, 1, .32, 1); }
+.done .mark { align-self: center; width: 44px; height: 44px; border-radius: 50%; background: var(--ink); color: var(--on-ink); display: grid; place-items: center; margin-bottom: 22px; }
 .done h1 { font-size: 28px; }
 .recap { margin: 28px 0 32px; border-top: 1px solid var(--line); }
 .recap div { display: flex; justify-content: space-between; gap: 16px; padding: 13px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
-.recap dt { color: var(--muted); flex: none; }
+.recap dt { color: var(--muted); flex: none; text-align: left; }
 .recap dd { text-align: right; font-weight: 500; overflow-wrap: anywhere; }
 @keyframes up { from { opacity: 0; transform: translateY(8px); } }
 
 /* Tableau public */
-.board { max-width: 1200px; }
+.board { max-width: 1200px; justify-content: flex-start; }
 .rounds { display: flex; gap: 16px; overflow-x: auto; margin: 28px -20px 0; padding: 0 20px 12px; }
 .round { display: flex; flex-direction: column; min-width: 220px; flex: 1; }
 .round h2 { font-size: 12px; font-weight: 500; color: var(--muted); margin-bottom: 12px; }

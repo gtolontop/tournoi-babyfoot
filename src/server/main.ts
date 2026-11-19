@@ -42,7 +42,7 @@ app.get("/tableau", (c) => {
   return c.html(BoardPage());
 });
 
-const tooMany = (c: any) => limited("reg:" + ipOf(c), 30, 10 * 60_000);
+const tooMany = (c: any) => limited("reg:" + ipOf(c), 300, 10 * 60_000);
 app.post("/api/register", async (c) => {
   if (tooMany(c)) return c.json({ error: "Trop d'essais, réessaie dans quelques minutes." }, 429);
   try { return c.json(register(await c.req.json())); }

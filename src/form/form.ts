@@ -6,6 +6,11 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 const form = $<HTMLFormElement>("f");
 const err = $<HTMLParagraphElement>("err");
 const go = $<HTMLButtonElement>("go");
+const lbl = go.querySelector(".lbl")!;
+// Mouvement réduit : pas de défilement animé.
+const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+// Une vibration à peine perceptible (Android seulement, ignorée ailleurs).
+const buzz = (ms: number) => { try { navigator.vibrate?.(ms); } catch { /* rien */ } };
 
 const field = (name: string) => form.elements.namedItem(name) as HTMLInputElement;
 const rows = (p: string) => [...form.querySelectorAll<HTMLElement>(`[data-lunch="${p}"] .day`)];
@@ -42,7 +47,8 @@ function shake(el: HTMLInputElement) {
   void el.offsetWidth;
   el.classList.add("bad");
   el.focus({ preventScroll: true });
-  el.scrollIntoView({ block: "center", behavior: "smooth" });
+  el.scrollIntoView({ block: "center", behavior: calm ? "auto" : "smooth" });
+  buzz(25);
 }
 form.addEventListener("input", (e) => (e.target as HTMLElement).classList.remove("bad"));
 
@@ -76,8 +82,11 @@ form.addEventListener("submit", async (e) => {
   data.lunch = lunchOf("l");
   if (duo) data.mlunch = lunchOf("m");
 
+  // Pendant l'envoi : le bouton garde sa place, un petit cercle tourne devant « Envoi… ».
   go.disabled = true;
-  go.textContent = "Envoi…";
+  go.classList.add("busy");
+  go.setAttribute("aria-busy", "true");
+  lbl.textContent = "Envoi…";
   try {
     const r = await fetch("/api/register", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(data) });
     const j = await r.json();
@@ -85,8 +94,9 @@ form.addEventListener("submit", async (e) => {
     $("done-title").textContent = j.title;
     $("done-text").textContent = j.text;
     const recap = $("recap");
-    recap.replaceChildren(...(j.lines as [string, string][]).map(([k, v]) => {
+    recap.replaceChildren(...(j.lines as [string, string][]).map(([k, v], i) => {
       const row = document.createElement("div");
+      row.style.setProperty("--i", String(i)); // les lignes du récapitulatif arrivent en cascade
       const dt = document.createElement("dt");
       const dd = document.createElement("dd");
       dt.textContent = k;
@@ -98,13 +108,16 @@ form.addEventListener("submit", async (e) => {
     form.hidden = true;
     $("done").hidden = false;
     scrollTo(0, 0);
+    buzz(12);
   } catch (x) {
     const m = (x as Error).message;
     if (/contact/i.test(m)) shake(field("contact"));
     toast(m === "Failed to fetch" ? "Connexion perdue, réessaie." : m);
   } finally {
     go.disabled = false;
-    go.textContent = "S'inscrire";
+    go.classList.remove("busy");
+    go.removeAttribute("aria-busy");
+    lbl.textContent = "S'inscrire";
   }
 });
 

@@ -21,8 +21,14 @@ export function loadAssets() {
   SCRIPT = read("dist/form.js");
 }
 
+// Les petits dessins : tracés fins en currentColor, ils suivent donc le thème (noir en clair, blanc en sombre).
+// pathLength="1" permet de les « dessiner » en CSS (stroke-dashoffset de 1 à 0).
 const ICON = {
-  check: <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>,
+  check: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 12.5l4.2 4.2L18.5 8" pathLength="1" /></svg>,
+  tick: <svg class="tick" width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 6.4l2.3 2.3L9.6 3.6" pathLength="1" /></svg>,
+  spin: <svg class="spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" opacity=".25" /><path d="M21 12a9 9 0 0 0-9-9" /></svg>,
+  solo: <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="7" cy="7" r="3.4" /></svg>,
+  duo: <svg width="18" height="14" viewBox="0 0 18 14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="6.2" cy="7" r="3.4" /><circle cx="11.8" cy="7" r="3.4" /></svg>,
 };
 
 function Page({ title, children, script }: { title: string; children: Child; script?: boolean }) {
@@ -59,7 +65,7 @@ function LunchRows({ p }: { p: "l" | "m" }) {
           <span>{DAY_NAMES[d]}</span>
           <div class="sv">
             {sv.map(([a, b]) => (
-              <label><input type="checkbox" name={`${p}${d}`} value={a} aria-label={`${DAY_NAMES[d]} ${fmt(a)} à ${fmt(b)}`} />{fmt(a)} – {fmt(b)}</label>
+              <label><input type="checkbox" name={`${p}${d}`} value={a} aria-label={`${DAY_NAMES[d]} ${fmt(a)} à ${fmt(b)}`} />{ICON.tick}{fmt(a)} – {fmt(b)}</label>
             ))}
           </div>
         </div>
@@ -119,18 +125,21 @@ export function FormPage({ ok }: { ok: boolean }) {
           <fieldset>
             <legend>Équipe</legend>
             <div class="seg" role="radiogroup" aria-label="Équipe">
-              <label><input type="radio" name="mode" value="solo" checked />Seul</label>
-              <label><input type="radio" name="mode" value="duo" id="m-duo" />À deux</label>
+              <label><input type="radio" name="mode" value="solo" checked />{ICON.solo}Seul</label>
+              <label><input type="radio" name="mode" value="duo" id="m-duo" />{ICON.duo}À deux</label>
             </div>
             <p class="hint solo-hint">On te met en équipe avec un autre joueur inscrit seul.</p>
             <p class="hint duo-hint">Vous jouez ensemble. Coche aussi ses services.</p>
+            {/* Deux boîtes : la grille extérieure s'ouvre en hauteur (0fr → 1fr), l'intérieure coupe ce qui dépasse. */}
             <div class="mate">
+              <div class="mate-in">
               <div class="pair">
                 <input type="text" name="mfirst" placeholder="Prénom du coéquipier" aria-label="Prénom du coéquipier" autocapitalize="words" maxlength={40} />
                 <input type="text" name="mlast" placeholder="Nom" aria-label="Nom du coéquipier" autocapitalize="words" maxlength={40} />
               </div>
               <p class="sub"><span>Et lui ?</span><button type="button" class="copy" data-copy="m" hidden>Pareil tous les jours</button><button type="button" class="copy" data-same>Comme moi</button></p>
               <LunchRows p="m" />
+              </div>
             </div>
           </fieldset>
 
@@ -140,7 +149,7 @@ export function FormPage({ ok }: { ok: boolean }) {
 
           <input class="hp" type="text" name="website" tabindex={-1} autocomplete="off" aria-hidden="true" />
           <div class="go">
-            <button class="btn" id="go" type="submit">S'inscrire</button>
+            <button class="btn" id="go" type="submit">{ICON.spin}<span class="lbl">S'inscrire</span></button>
             {s.publicBoard && state.tournament && <p class="foot"><a href="/tableau">Voir le tableau</a></p>}
           </div>
         </form>

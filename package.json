@@ -1,0 +1,32 @@
+{
+  "name": "tournoi-babyfoot",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "node --import tsx --watch src/server/main.ts",
+    "dev:web": "vite",
+    "build": "vite build && esbuild src/form/form.ts --bundle --minify --format=iife --target=es2019 --outfile=dist/form.js",
+    "start": "node --import tsx src/server/main.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "hono": "^4.6.14",
+    "qrcode": "^1.5.4",
+    "tsx": "^4.19.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "@types/qrcode": "^1.5.5",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "esbuild": "^0.24.0",
+    "lucide-react": "^0.468.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0",
+    "typescript": "^5.7.2",
+    "vite": "^6.0.3"
+  }
+}

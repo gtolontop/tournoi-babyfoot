@@ -1,0 +1,12 @@
+node_modules/
+dist/
+data/
+old/
+*.log
+.env
+.env.*
+state.json
+*.backup-*.json
+
+# Police Facade : propriétaire, non redistribuable
+src/admin/fonts/facade.woff2

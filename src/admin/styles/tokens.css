@@ -1,0 +1,112 @@
+/* The dashboard's design tokens: one place for colour, space, radius, type, elevation and motion, light and dark.
+   Sober on purpose: greys from paper to ink, one accent (the storefront terracotta), and three state colours used
+   only where a state is meant. The theme follows the phone or computer, unless the account menu forces one
+   (html[data-theme], set before the first paint by index.html). Every figure uses tabular numbers. */
+
+:root {
+  color-scheme: light;
+  /* Surfaces: the page, then what sits on it. --bg stays the surface of cards and fields (its historic meaning). */
+  --page: #f6f6f3;
+  --bg: #ffffff;
+  --panel: #fafaf8;
+  --surface: #f1f1ee;
+  --line: #e8e8e4;
+  --line-strong: #d6d6d0;
+  /* Text */
+  --text: #131312;
+  --text-2: #3e3e3a;
+  --muted: #72726c;
+  --faint: #a4a49e;
+  /* Ink: the main action and the darkest mark; --on-ink is what is written on it. */
+  --ink: #141412;
+  --on-ink: #ffffff;
+  --accent: var(--ink);
+  /* The one accent, for what asks for the eye. */
+  --tint: #b0623a;
+  --tint-soft: #f6ebe3;
+  --tint-ink: #96502c;
+  /* States, used sparingly */
+  --ok: #2c7a52;
+  --ok-soft: #e7f3ec;
+  --warn: #a35f14;
+  --warn-soft: #faf0e1;
+  --danger: #c23b3b;
+  --danger-soft: #fbebea;
+  /* Charts: one hue, from ink to paper, plus the accent for the highlight. */
+  --chart-1: #1b1b19;
+  --chart-2: #5c5c57;
+  --chart-3: #9a9a94;
+  --chart-4: #cfcfc9;
+  --chart-5: #e6e6e1;
+  --chart-grid: #ecece8;
+  --chart-area: rgba(20, 20, 18, .07);
+  --scrim: rgba(20, 20, 18, .18);
+  --overlay: rgba(255, 255, 255, .96);
+
+  /* Space: a 4 px scale */
+  --s-1: 4px; --s-2: 8px; --s-3: 12px; --s-4: 16px; --s-5: 20px; --s-6: 24px; --s-8: 32px; --s-10: 40px; --s-12: 48px;
+  /* Radius */
+  --r-xs: 6px; --r-sm: 8px; --radius-sm: 8px; --r: 12px; --radius: 12px; --r-lg: 16px; --r-full: 999px;
+  /* Type */
+  --fs-xs: 11.5px; --fs-sm: 12.5px; --fs: 14px; --fs-md: 15px; --fs-lg: 18px; --fs-xl: 24px; --fs-2xl: 30px; --fs-3xl: 38px;
+  --num: tabular-nums;
+  /* Elevation */
+  --shadow-sm: 0 1px 1px rgba(20, 20, 18, .03), 0 1px 2px rgba(20, 20, 18, .04);
+  --shadow: 0 1px 2px rgba(20, 20, 18, .04), 0 4px 16px rgba(20, 20, 18, .05);
+  --shadow-lg: 0 2px 6px rgba(20, 20, 18, .05), 0 16px 48px rgba(20, 20, 18, .12);
+  --ring: 0 0 0 2px var(--bg), 0 0 0 4px rgba(176, 98, 58, .55);
+
+  /* Motion. Springs computed from stiffness and damping (smooth 300/30, snappy 400/25, gentle 180/24), written as
+     CSS linear() curves so no animation library is needed. */
+  --spring-smooth: linear(0, 0.079, 0.225, 0.4, 0.55, 0.684, 0.782, 0.86, 0.911, 0.949, 0.972, 0.987, 0.996, 1, 1.003, 1.003, 1.003, 1.003, 1.002, 1.002, 1.001, 1.001, 1.001, 1, 1);
+  --spring-snappy: linear(0, 0.108, 0.346, 0.586, 0.801, 0.943, 1.033, 1.07, 1.077, 1.065, 1.047, 1.028, 1.013, 1.003, 0.997, 0.994, 0.994, 0.995, 0.997, 0.998, 0.999, 1, 1, 1, 1);
+  --spring-gentle: linear(0, 0.056, 0.182, 0.323, 0.468, 0.59, 0.698, 0.779, 0.846, 0.893, 0.929, 0.954, 0.972, 0.983, 0.99, 0.996, 0.998, 1, 1.001, 1.001, 1.001, 1.001, 1.001, 1.001, 1);
+  --t-smooth: 580ms;
+  --t-snappy: 620ms;
+  --t-gentle: 660ms;
+  --ease-out: cubic-bezier(.23, 1, .32, 1);
+  --ease: cubic-bezier(.2, .7, .2, 1);
+  --t-fast: 160ms;
+  --t-base: 250ms;
+}
+
+/* Dark: the same greys, reversed, a touch warmer than pure black; the accent lighter so it reads on dark. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --page: #0d0d0e; --bg: #151516; --panel: #19191b; --surface: #222225; --line: #28282c; --line-strong: #38383d;
+    --text: #ededea; --text-2: #c7c7c2; --muted: #8f8f8a; --faint: #5f5f5b;
+    --ink: #f1f1ee; --on-ink: #131312;
+    --tint: #d98b60; --tint-soft: rgba(217, 139, 96, .14); --tint-ink: #eba67f;
+    --ok: #5cbf8a; --ok-soft: rgba(92, 191, 138, .13); --warn: #e0a557; --warn-soft: rgba(224, 165, 87, .13); --danger: #ef7a72; --danger-soft: rgba(239, 122, 114, .13);
+    --chart-1: #f1f1ee; --chart-2: #b3b3ae; --chart-3: #7b7b77; --chart-4: #4b4b4f; --chart-5: #313135; --chart-grid: #232326;
+    --chart-area: rgba(241, 241, 238, .07); --scrim: rgba(0, 0, 0, .55); --overlay: rgba(21, 21, 22, .96);
+    --shadow-sm: 0 1px 1px rgba(0, 0, 0, .3); --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 4px 16px rgba(0, 0, 0, .3); --shadow-lg: 0 2px 6px rgba(0, 0, 0, .4), 0 16px 48px rgba(0, 0, 0, .55);
+    --ring: 0 0 0 2px var(--bg), 0 0 0 4px rgba(217, 139, 96, .6);
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0e; --bg: #151516; --panel: #19191b; --surface: #222225; --line: #28282c; --line-strong: #38383d;
+  --text: #ededea; --text-2: #c7c7c2; --muted: #8f8f8a; --faint: #5f5f5b;
+  --ink: #f1f1ee; --on-ink: #131312;
+  --tint: #d98b60; --tint-soft: rgba(217, 139, 96, .14); --tint-ink: #eba67f;
+  --ok: #5cbf8a; --ok-soft: rgba(92, 191, 138, .13); --warn: #e0a557; --warn-soft: rgba(224, 165, 87, .13); --danger: #ef7a72; --danger-soft: rgba(239, 122, 114, .13);
+  --chart-1: #f1f1ee; --chart-2: #b3b3ae; --chart-3: #7b7b77; --chart-4: #4b4b4f; --chart-5: #313135; --chart-grid: #232326;
+  --chart-area: rgba(241, 241, 238, .07); --scrim: rgba(0, 0, 0, .55); --overlay: rgba(21, 21, 22, .96);
+  --shadow-sm: 0 1px 1px rgba(0, 0, 0, .3); --shadow: 0 1px 2px rgba(0, 0, 0, .4), 0 4px 16px rgba(0, 0, 0, .3); --shadow-lg: 0 2px 6px rgba(0, 0, 0, .4), 0 16px 48px rgba(0, 0, 0, .55);
+  --ring: 0 0 0 2px var(--bg), 0 0 0 4px rgba(217, 139, 96, .6);
+}
+
+/* Reduced motion: every spring and transition lands at once. */
+@media (prefers-reduced-motion: reduce) {
+  :root { --t-smooth: 1ms; --t-snappy: 1ms; --t-gentle: 1ms; --t-fast: 1ms; --t-base: 1ms; }
+  *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; scroll-behavior: auto !important; }
+}
+
+html { background: var(--page); }
+body { background: var(--page); color: var(--text); }
+/* Visible focus for the keyboard only, the same ring everywhere. */
+:focus-visible { outline: none; box-shadow: var(--ring); border-radius: var(--r-xs); }
+input:focus-visible, select:focus-visible, textarea:focus-visible { border-radius: var(--radius-sm); }
+::selection { background: var(--tint-soft); color: var(--text); }

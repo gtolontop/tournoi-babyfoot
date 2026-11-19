@@ -68,10 +68,6 @@ input.note { height: 44px; font-size: 15px; border-color: var(--line); }
 /* Coché : le bouton passe à l'encre avec un petit rebond, une coche fine se dessine dans le coin. */
 .sv label:has(input:checked) { background: var(--ink); color: var(--on-ink); animation: pop .5s var(--spring-snappy); }
 .sv label:has(input:focus-visible) { box-shadow: 0 0 0 2px var(--text); }
-.tick { position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; opacity: 0; transition: opacity .2s; }
-.tick path { stroke-dasharray: 1; stroke-dashoffset: 1; transition: stroke-dashoffset .3s var(--ease-out); }
-.sv label:has(input:checked) .tick { opacity: .9; }
-.sv label:has(input:checked) .tick path { stroke-dashoffset: 0; transition-delay: .08s; }
 .copy { appearance: none; border: 0; background: none; padding: 0; font: inherit; font-size: 13px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; animation: fade .35s var(--ease-out); transition: opacity .15s; }
 .copy:active { opacity: .5; }
 

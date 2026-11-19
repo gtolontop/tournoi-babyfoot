@@ -25,7 +25,6 @@ export function loadAssets() {
 // pathLength="1" permet de les « dessiner » en CSS (stroke-dashoffset de 1 à 0).
 const ICON = {
   check: <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5.5 12.5l4.2 4.2L18.5 8" pathLength="1" /></svg>,
-  tick: <svg class="tick" width="9" height="9" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 6.4l2.3 2.3L9.6 3.6" pathLength="1" /></svg>,
   spin: <svg class="spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9" opacity=".25" /><path d="M21 12a9 9 0 0 0-9-9" /></svg>,
   solo: <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="7" cy="7" r="3.4" /></svg>,
   duo: <svg width="18" height="14" viewBox="0 0 18 14" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><circle cx="6.2" cy="7" r="3.4" /><circle cx="11.8" cy="7" r="3.4" /></svg>,
@@ -65,7 +64,7 @@ function LunchRows({ p }: { p: "l" | "m" }) {
           <span>{DAY_NAMES[d]}</span>
           <div class="sv">
             {sv.map(([a, b]) => (
-              <label><input type="checkbox" name={`${p}${d}`} value={a} aria-label={`${DAY_NAMES[d]} ${fmt(a)} à ${fmt(b)}`} />{ICON.tick}{fmt(a)} – {fmt(b)}</label>
+              <label><input type="checkbox" name={`${p}${d}`} value={a} aria-label={`${DAY_NAMES[d]} ${fmt(a)} à ${fmt(b)}`} />{fmt(a)} – {fmt(b)}</label>
             ))}
           </div>
         </div>

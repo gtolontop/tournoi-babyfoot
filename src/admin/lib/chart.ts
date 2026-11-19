@@ -1,5 +1,5 @@
 // Shared arithmetic of the hand-written SVG charts (components/kit): curves, scales, ticks and French number formats.
-// monotonePath and resample are adapted from EasyUI (MIT, Suraj Maurya; see docs/third-party.md).
+// monotonePath and resample are adapted from EasyUI (MIT, Suraj Maurya; see THIRD_PARTY.md).
 
 // A smooth curve through the points that never overshoots the data (monotone cubic).
 export function monotonePath(p: [number, number][]): string {

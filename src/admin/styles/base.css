@@ -1,7 +1,7 @@
 /* Repris du dashboard Facade (styles/app.css et styles/shell.css) : la base, la coque, les boutons, les champs, le
    panneau. Les couleurs viennent de tokens.css, les blocs et figures de kit.css. */
-@font-face { font-family: "Facade"; src: url("../fonts/facade.woff2") format("woff2"); font-weight: 300 900; font-style: oblique 0deg 14deg; font-display: swap; }
-@font-face { font-family: "Inter"; font-style: normal; font-weight: 400 700; font-display: swap; src: url("../fonts/inter-latin.woff2") format("woff2"); }
+@font-face { font-family: "Facade"; src: url("/admin/fonts/facade.woff2") format("woff2"); font-weight: 300 900; font-style: oblique 0deg 14deg; font-display: swap; }
+@font-face { font-family: "Inter"; font-style: normal; font-weight: 400 700; font-display: swap; src: url("/admin/fonts/inter-latin.woff2") format("woff2"); }
 :root { --font-facade: "Facade", "Inter", system-ui, -apple-system, sans-serif; }
 :root {
   /* Colours, space and motion: styles/tokens.css. */

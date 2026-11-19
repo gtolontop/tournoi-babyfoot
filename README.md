@@ -22,6 +22,15 @@ Inscriptions et organisation d'un tournoi de baby-foot : un formulaire public po
 - React + Vite pour l'espace d'organisation
 - Un fichier JSON comme stockage
 
+## Organisation du code
+
+- `src/server` : le serveur Hono, l'API, les pages publiques rendues en TSX
+- `src/admin` : l'espace d'organisation (React)
+- `src/form` : le petit script du formulaire, mis en ligne dans la page
+- `src/shared` : les types et la lecture des disponibilités (« mardi midi, jeudi après 17h »)
+
+Développement : `npm run dev` (serveur) et `npm run dev:web` (espace d'organisation, http://localhost:5173/admin/).
+
 ## Lancer
 
 ```sh
@@ -34,18 +43,18 @@ Variables d'environnement :
 
 | Variable         | Rôle                                         | Défaut           |
 | ---------------- | -------------------------------------------- | ---------------- |
-| `ADMIN_PASSWORD` | mot de passe de l'espace d'organisation      |                  |
-| `PUBLIC_URL`     | adresse publique (liens, QR code)            |                  |
+| `ADMIN_PASSWORD` | mot de passe de l'espace d'organisation      | généré et affiché au démarrage |
+| `PUBLIC_URL`     | adresse publique (liens, QR code)            | `http://127.0.0.1:8110` |
 | `PORT`           | port d'écoute                                | `8110`           |
-| `HOST`           | interface d'écoute                           |                  |
-| `DATA_FILE`      | chemin du fichier JSON de données            |                  |
+| `HOST`           | interface d'écoute                           | `127.0.0.1`      |
+| `DATA_FILE`      | chemin du fichier JSON de données            | `data/state.json` |
 
 `ADMIN_PASSWORD` n'est lu qu'au premier démarrage, puis il est stocké haché dans le fichier de données.
 
 ## Police
 
-L'interface peut utiliser la police Facade (`src/admin/fonts/facade.woff2`), qui n'est pas incluse dans ce dépôt car elle n'est pas sous licence libre. Elle est optionnelle : sans elle, l'interface utilise Inter (licence OFL, incluse).
+L'interface peut utiliser la police Facade (`src/admin/public/fonts/facade.woff2`), qui n'est pas incluse dans ce dépôt car elle n'est pas sous licence libre. Elle est optionnelle : sans elle, l'interface utilise Inter (licence OFL, incluse).
 
 ## Licence
 
-MIT
+MIT. Voir aussi [THIRD_PARTY.md](THIRD_PARTY.md).

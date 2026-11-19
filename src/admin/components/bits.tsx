@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { AtSign, Mail, Phone } from "lucide-react";
 import type { Contact, View } from "../../shared/types";
-import { DAY_NAMES, DAY_SHORT, fmt, steps, type Lunch } from "../../shared/lunch";
+import { DAY_NAMES, DAY_SHORT, fmt, fromServices, services, steps, type Lunch, type Range } from "../../shared/lunch";
 import { cx } from "../lib/ui";
 
 // Petits morceaux partagés par les écrans : le contact cliquable, les barres, une ligne d'action.
@@ -24,19 +24,15 @@ export function ContactLink({ c }: { c: Contact | null }) {
   );
 }
 
-// L'éditeur de pause du midi de la fiche joueur : une ligne par jour, deux heures.
+// L'éditeur de pause du midi de la fiche joueur : une ligne par jour, un bouton par service.
 export function LunchEditor({ value, onChange, days, from, to }: { value: Lunch; onChange: (l: Lunch) => void; days: number[]; from: number; to: number }) {
-  const opts = steps(from, to);
-  const set = (d: number, i: 0 | 1, v: string) => {
+  const sv = services(from, to);
+  const on = (d: number, [a, b]: Range) => { const r = value[d]; return !!r && r[0] <= a && r[1] >= b; };
+  const toggle = (d: number, x: Range) => {
+    const starts = sv.filter((y) => (y === x ? !on(d, y) : on(d, y))).map((y) => y[0]);
     const next = { ...value };
-    if (!v) delete next[d];
-    else {
-      const r: [number, number] = value[d] ? [value[d]![0], value[d]![1]] : [from, from];
-      r[i] = Number(v);
-      if (i === 0 && (!value[d] || r[1] <= r[0])) r[1] = Math.min(to, r[0] + 60);
-      if (i === 1 && (!value[d] || r[0] >= r[1])) r[0] = Math.max(from, r[1] - 60);
-      next[d] = r;
-    }
+    const r = fromServices(starts);
+    if (r) next[d] = r; else delete next[d];
     onChange(next);
   };
   return (
@@ -44,12 +40,9 @@ export function LunchEditor({ value, onChange, days, from, to }: { value: Lunch;
       {days.map((d) => (
         <div key={d} className={cx("t-lunch-row", value[d] && "on")}>
           <span>{DAY_NAMES[d]}</span>
-          {([0, 1] as const).map((i) => (
-            <select key={i} aria-label={`${DAY_NAMES[d]} ${i ? "fin" : "début"}`} value={value[d]?.[i] ?? ""} onChange={(e) => set(d, i, e.target.value)}>
-              <option value="">—</option>
-              {opts.map((m) => <option key={m} value={m}>{fmt(m)}</option>)}
-            </select>
-          ))}
+          <div className="t-sv">
+            {sv.map((x) => <button key={x[0]} type="button" className={cx(on(d, x) && "on")} aria-pressed={on(d, x)} onClick={() => toggle(d, x)}>{fmt(x[0])} – {fmt(x[1])}</button>)}
+          </div>
         </div>
       ))}
     </div>

@@ -51,7 +51,7 @@ app.post("/api/register", async (c) => {
 // Sans script : le navigateur envoie le formulaire, on revient sur la page avec la confirmation.
 app.post("/inscription", async (c) => {
   if (tooMany(c)) return c.html(ErrorPage({ message: "Trop d'essais, réessaie dans quelques minutes." }), 429);
-  try { register((await c.req.parseBody()) as Record<string, string>); return c.redirect("/?ok=1", 303); }
+  try { register((await c.req.parseBody({ all: true })) as Record<string, unknown>); return c.redirect("/?ok=1", 303); }
   catch (e) { if (e instanceof UserError) return c.html(ErrorPage({ message: e.message }), 400); throw e; }
 });
 

@@ -190,10 +190,12 @@ a.ui-btn.quiet { border-color: transparent; background: transparent; box-shadow:
 
 /* Pause du midi : éditeur de la fiche joueur */
 .t-lunch { display: grid; border: 1px solid var(--line); border-radius: var(--r-md, 10px); overflow: hidden; }
-.t-lunch-row { display: grid; grid-template-columns: 1fr 86px 86px; gap: 6px; align-items: center; padding: 5px 5px 5px 12px; font-weight: 400; color: var(--muted); }
+.t-lunch-row { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; padding: 5px 5px 5px 12px; font-weight: 400; color: var(--muted); }
 .t-lunch-row + .t-lunch-row { border-top: 1px solid var(--line); }
 .t-lunch-row.on { color: var(--text); font-weight: 500; }
-.t-field .t-lunch-row select { height: 32px; text-align: center; font-variant-numeric: tabular-nums; }
+.t-sv { display: flex; gap: 5px; }
+.t-sv button { height: 30px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--bg); color: var(--muted); font: inherit; font-size: 12.5px; font-weight: 500; font-variant-numeric: tabular-nums; cursor: pointer; }
+.t-sv button.on { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
 
 /* Pause du midi : carte de chaleur de l'aperçu */
 .t-heat { display: grid; gap: 5px; }

@@ -1,6 +1,6 @@
-// Le script du formulaire public, mis en ligne dans la page : les pauses du midi se remplissent vite (fin proposée une
-// heure après le début, « pareil tous les jours », « comme moi » pour le coéquipier), l'envoi se fait sans recharger.
-// Sans script, le formulaire s'envoie quand même (POST /inscription).
+// Le script du formulaire public, mis en ligne dans la page : les services du midi se cochent vite (« pareil tous les
+// jours », « comme moi » pour le coéquipier), un champ oublié tremble au lieu d'afficher un message, l'envoi se fait
+// sans recharger. Sans script, le formulaire s'envoie quand même (POST /inscription).
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const form = $<HTMLFormElement>("f");
@@ -9,74 +9,70 @@ const go = $<HTMLButtonElement>("go");
 
 const field = (name: string) => form.elements.namedItem(name) as HTMLInputElement;
 const rows = (p: string) => [...form.querySelectorAll<HTMLElement>(`[data-lunch="${p}"] .day`)];
-const pair = (row: HTMLElement) => row.querySelectorAll("select") as NodeListOf<HTMLSelectElement>;
-// Un jour compte seulement si le début et la fin sont remplis ; sinon le joueur n'est pas là ce jour-là.
-const filled = (p: string) => rows(p).filter((r) => { const [s, e] = pair(r); return s.value && e.value; });
+const boxes = (row: HTMLElement) => [...row.querySelectorAll<HTMLInputElement>("input[type=checkbox]")];
+const filled = (p: string) => rows(p).filter((r) => boxes(r).some((b) => b.checked));
 const copyBtn = (p: string) => form.querySelector<HTMLButtonElement>(`[data-copy="${p}"]`)!;
 const syncCopy = (p: string) => { copyBtn(p).hidden = filled(p).length !== 1 || rows(p).length < 2; };
-
-// Choisir le début propose la fin une heure plus tard ; la fin ne peut pas précéder le début.
-function onSelect(sel: HTMLSelectElement) {
-  const row = sel.closest(".day") as HTMLElement;
-  const [s, e] = pair(row);
-  const opts = [...e.options].map((o) => o.value).filter(Boolean).map(Number);
-  if (sel === s && s.value && (!e.value || Number(e.value) <= Number(s.value))) {
-    const want = Number(s.value) + 60;
-    e.value = String(opts.find((m) => m >= want) ?? opts[opts.length - 1]);
-  } else if (sel === e && e.value && s.value && Number(s.value) >= Number(e.value)) {
-    const want = Number(e.value) - 60;
-    s.value = String([...opts].reverse().find((m) => m <= want) ?? opts[0]);
-  }
-  syncCopy((sel.closest("[data-lunch]") as HTMLElement).dataset.lunch!);
-}
+const copyRow = (from: HTMLElement, to: HTMLElement) => { const a = boxes(from); boxes(to).forEach((b, i) => { b.checked = a[i].checked; }); };
 
 form.addEventListener("click", (e) => {
   const b = (e.target as HTMLElement).closest("button");
   if (!b) return;
   if (b.dataset.copy) {
-    const p = b.dataset.copy;
-    const src = filled(p)[0];
-    if (!src) return;
-    const [s, en] = pair(src);
-    for (const r of rows(p)) { const [a, c] = pair(r); a.value = s.value; c.value = en.value; }
+    const p = b.dataset.copy, src = filled(p)[0];
+    if (src) for (const r of rows(p)) copyRow(src, r);
     b.hidden = true;
   }
   if (b.hasAttribute("data-same")) {
-    const mine = rows("l"), his = rows("m");
-    mine.forEach((r, i) => { const [a, c] = pair(r), [x, y] = pair(his[i]); x.value = a.value; y.value = c.value; });
+    const his = rows("m");
+    rows("l").forEach((r, i) => copyRow(r, his[i]));
     syncCopy("m");
   }
 });
 
 form.addEventListener("change", (e) => {
-  const t = e.target as HTMLElement;
-  if (t instanceof HTMLSelectElement) onSelect(t);
-  if (t instanceof HTMLInputElement && t.name === "mode" && t.value === "duo") field("mfirst").focus();
+  const t = e.target as HTMLInputElement;
+  if (t.type === "checkbox") syncCopy((t.closest("[data-lunch]") as HTMLElement).dataset.lunch!);
+  if (t.name === "mode" && t.value === "duo") field("mfirst").focus();
 });
 
-const fail = (msg: string, el?: HTMLElement) => {
+// Champ oublié : on y met le curseur et il tremble. Il redevient normal dès qu'on écrit dedans.
+function shake(el: HTMLInputElement) {
+  el.classList.remove("bad");
+  void el.offsetWidth;
+  el.classList.add("bad");
+  el.focus({ preventScroll: true });
+  el.scrollIntoView({ block: "center", behavior: "smooth" });
+}
+form.addEventListener("input", (e) => (e.target as HTMLElement).classList.remove("bad"));
+
+let hideTimer = 0;
+function toast(msg: string) {
   err.textContent = msg;
   err.classList.add("on");
-  el?.focus();
-};
+  clearTimeout(hideTimer);
+  hideTimer = window.setTimeout(() => err.classList.remove("on"), 4000);
+}
 
 const lunchOf = (p: string) => {
   const out: Record<string, [number, number]> = {};
-  for (const r of filled(p)) { const [s, e] = pair(r); out[r.dataset.day!] = [Number(s.value), Number(e.value)]; }
+  for (const r of filled(p)) {
+    const s = boxes(r).filter((b) => b.checked).map((b) => Number(b.value)).sort((a, b) => a - b);
+    out[r.dataset.day!] = [s[0], s[s.length - 1] + 60];
+  }
   return out;
 };
 
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   err.classList.remove("on");
-  const data = Object.fromEntries(new FormData(form)) as Record<string, unknown>;
-  const str = (k: string) => String(data[k] ?? "").trim();
-  if (!str("first")) return fail("Indique ton prénom.", field("first"));
-  if (!str("last")) return fail("Indique ton nom.", field("last"));
-  const duo = data.mode === "duo";
-  if (duo && !str("mfirst")) return fail("Indique le prénom de ton coéquipier.", field("mfirst"));
-  if (duo && !str("mlast")) return fail("Indique le nom de ton coéquipier.", field("mlast"));
-  for (const k of Object.keys(data)) if (/^[lm]\d[se]$/.test(k)) delete data[k];
+  const duo = (form.querySelector("input[name=mode]:checked") as HTMLInputElement).value === "duo";
+  const need = ["first", "last", ...(duo ? ["mfirst", "mlast"] : [])].map(field).find((el) => !el.value.trim());
+  if (need) return shake(need);
+
+  const data: Record<string, unknown> = {};
+  for (const k of ["first", "last", "contact", "mfirst", "mlast", "note", "website"]) data[k] = field(k).value;
+  data.mode = duo ? "duo" : "solo";
   data.lunch = lunchOf("l");
   if (duo) data.mlunch = lunchOf("m");
 
@@ -103,7 +99,9 @@ form.addEventListener("submit", async (e) => {
     $("done").hidden = false;
     scrollTo(0, 0);
   } catch (x) {
-    fail((x as Error).message === "Failed to fetch" ? "Connexion perdue, réessaie." : (x as Error).message);
+    const m = (x as Error).message;
+    if (/contact/i.test(m)) shake(field("contact"));
+    toast(m === "Failed to fetch" ? "Connexion perdue, réessaie." : m);
   } finally {
     go.disabled = false;
     go.textContent = "S'inscrire";

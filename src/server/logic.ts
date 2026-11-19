@@ -1,6 +1,6 @@
 // Les règles du tournoi : inscriptions, équipes, tableau, classement, calage des matchs sur les pauses du midi, et la
 // vue envoyée à l'espace d'organisation.
-import { cleanLunch, DAY_NAMES, fmt, intersect, STEP, steps, summary, total, type Lunch, type Window } from "../shared/lunch.ts";
+import { cleanLunch, DAY_NAMES, fmt, fromServices, intersect, SLOT, steps, summary, total, type Lunch, type Range, type Window } from "../shared/lunch.ts";
 import type { Contact, Estimate, Format, Match, Player, Team, View } from "../shared/types.ts";
 import { logEvent, save, state, uid, type Session } from "./store.ts";
 
@@ -118,11 +118,15 @@ export function register(d: Record<string, unknown>): Recap {
   };
 }
 const safeJson = (s: string) => { try { return JSON.parse(s); } catch { return null; } };
-// Avec le script : { jour: [début, fin] }. Sans script : les champs {p}{jour}s / {p}{jour}e. Une heure manquante = pas là ce jour.
+// Avec le script : { jour: [début, fin] }. Sans script : les cases {p}{jour} cochées, une par service.
 function lunchField(d: Record<string, unknown>, key: string, p: string) {
   const v = d[key];
-  const raw = v ? (typeof v === "string" ? safeJson(v) : v)
-    : Object.fromEntries([0, 1, 2, 3, 4].map((i) => [i, [d[`${p}${i}s`], d[`${p}${i}e`]]]).filter(([, r]) => (r as unknown[]).every((x) => x !== "" && x != null)));
+  if (v) return readLunch(typeof v === "string" ? safeJson(v) : v);
+  const raw: Record<number, Range> = {};
+  for (let i = 0; i < 5; i++) {
+    const r = fromServices([d[`${p}${i}`]].flat().filter((x) => x !== "" && x != null).map(Number));
+    if (r) raw[i] = r;
+  }
   return readLunch(raw);
 }
 
@@ -326,7 +330,7 @@ export function view(sess: Session): View {
   const present = state.players.filter((p) => !p.absent);
 
   // Joueurs libres à chaque quart d'heure, et le moment qui réunit le plus d'équipes complètes pour un match entier.
-  const step = STEP;
+  const step = SLOT;
   const grid = steps(lunchFrom, lunchTo - step, step);
   const heat = {
     from: lunchFrom, to: lunchTo, step,

@@ -9,6 +9,18 @@ export type Lunch = Partial<Record<number, Range>>; // jour (0 = lundi) → paus
 export type Window = { day: number; s: number; e: number };
 
 export const fmt = (m: number) => `${Math.floor(m / 60)}h${m % 60 ? String(m % 60).padStart(2, "0") : ""}`;
+export const SLOT = 60; // un service = une heure de cours
+// Les services entre deux bornes : [12h10, 13h10], [13h10, 14h10].
+export function services(from: number, to: number): Range[] {
+  const out: Range[] = [];
+  for (let m = from; m + SLOT <= to; m += SLOT) out.push([m, m + SLOT]);
+  return out;
+}
+// Des services cochés (leurs heures de début) à la plage du jour ; deux services qui se suivent font deux heures.
+export function fromServices(starts: number[]): Range | null {
+  const s = [...new Set(starts.filter((x) => Number.isFinite(x)))].sort((a, b) => a - b);
+  return s.length ? [s[0], s[s.length - 1] + SLOT] : null;
+}
 export const fmtRange = (r: Range) => `${fmt(r[0])} – ${fmt(r[1])}`;
 export const minutes = (a: number, b: number) => Math.max(0, b - a);
 

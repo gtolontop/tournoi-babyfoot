@@ -7,7 +7,7 @@ import type { Child } from "hono/jsx";
 import { state } from "./store.ts";
 import { roundName, tournamentView } from "./logic.ts";
 import type { MatchView } from "../shared/types.ts";
-import { DAY_NAMES, fmt, steps } from "../shared/lunch.ts";
+import { DAY_NAMES, fmt, services } from "../shared/lunch.ts";
 
 const root = path.resolve(import.meta.dirname, "../..");
 const read = (p: string) => { try { return fs.readFileSync(path.join(root, p), "utf8"); } catch { return ""; } };
@@ -51,21 +51,17 @@ const meta = () => [state.settings.name, state.settings.date, state.settings.pla
 // Une ligne par jour : « Mar  12h – 13h ». Vide = ne mange pas au lycée ce jour-là.
 function LunchRows({ p }: { p: "l" | "m" }) {
   const s = state.settings;
-  const opts = steps(s.lunchFrom, s.lunchTo);
-  const pick = (name: string, label: string) => (
-    <select name={name} aria-label={label}>
-      <option value="">—</option>
-      {opts.map((m) => <option value={m}>{fmt(m)}</option>)}
-    </select>
-  );
+  const sv = services(s.lunchFrom, s.lunchTo);
   return (
     <div class="lunch" data-lunch={p}>
       {s.days.map((d) => (
         <div class="day" data-day={d}>
           <span>{DAY_NAMES[d]}</span>
-          {pick(`${p}${d}s`, `${DAY_NAMES[d]}, début`)}
-          <i>à</i>
-          {pick(`${p}${d}e`, `${DAY_NAMES[d]}, fin`)}
+          <div class="sv">
+            {sv.map(([a, b]) => (
+              <label><input type="checkbox" name={`${p}${d}`} value={a} aria-label={`${DAY_NAMES[d]} ${fmt(a)} à ${fmt(b)}`} />{fmt(a)} – {fmt(b)}</label>
+            ))}
+          </div>
         </div>
       ))}
     </div>
@@ -115,9 +111,9 @@ export function FormPage({ ok }: { ok: boolean }) {
           </fieldset>
 
           <fieldset>
-            <legend>Tu manges de quand à quand ? <button type="button" class="copy" data-copy="l" hidden>Pareil tous les jours</button></legend>
+            <legend>Tu manges à quel service ? <button type="button" class="copy" data-copy="l" hidden>Pareil tous les jours</button></legend>
             <LunchRows p="l" />
-            <p class="hint">Facultatif. On te convoque pour jouer sur ces horaires. Laisse vide les jours où tu n'es pas là.</p>
+            <p class="hint">Facultatif. Coche tes heures de pause du midi : on te convoque pour jouer pendant. Rien de coché = pas dispo ce jour-là.</p>
           </fieldset>
 
           <fieldset>
@@ -127,13 +123,13 @@ export function FormPage({ ok }: { ok: boolean }) {
               <label><input type="radio" name="mode" value="duo" id="m-duo" />À deux</label>
             </div>
             <p class="hint solo-hint">On te met en équipe avec un autre joueur inscrit seul.</p>
-            <p class="hint duo-hint">Vous jouez ensemble. Indique aussi quand ton coéquipier mange.</p>
+            <p class="hint duo-hint">Vous jouez ensemble. Coche aussi ses services.</p>
             <div class="mate">
               <div class="pair">
                 <input type="text" name="mfirst" placeholder="Prénom du coéquipier" aria-label="Prénom du coéquipier" autocapitalize="words" maxlength={40} />
                 <input type="text" name="mlast" placeholder="Nom" aria-label="Nom du coéquipier" autocapitalize="words" maxlength={40} />
               </div>
-              <p class="sub"><span>Il mange de quand à quand ?</span><button type="button" class="copy" data-copy="m" hidden>Pareil tous les jours</button><button type="button" class="copy" data-same>Comme moi</button></p>
+              <p class="sub"><span>Et lui ?</span><button type="button" class="copy" data-copy="m" hidden>Pareil tous les jours</button><button type="button" class="copy" data-same>Comme moi</button></p>
               <LunchRows p="m" />
             </div>
           </fieldset>
@@ -144,11 +140,11 @@ export function FormPage({ ok }: { ok: boolean }) {
 
           <input class="hp" type="text" name="website" tabindex={-1} autocomplete="off" aria-hidden="true" />
           <div class="go">
-            <p class="err" id="err" role="alert" />
             <button class="btn" id="go" type="submit">S'inscrire</button>
             {s.publicBoard && state.tournament && <p class="foot"><a href="/tableau">Voir le tableau</a></p>}
           </div>
         </form>
+        <p class="toast" id="err" role="alert" />
       </main>
     </Page>
   );

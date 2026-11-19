@@ -62,7 +62,7 @@ export function Overview() {
           <Block title="À faire" sub="Proposé d'après les inscriptions.">
             <div className="t-todos">{todos}</div>
           </Block>
-          <Block title="Pauses du midi" sub="Joueurs à table, de 10 en 10 minutes. Le créneau marqué réunit le plus d'équipes." aside={st.noLunch ? <span className="k-badge">{st.noLunch} sans horaire</span> : null}>
+          <Block title="Pauses du midi" sub="Joueurs à table, service par service. Le créneau marqué réunit le plus d'équipes." aside={st.noLunch ? <span className="k-badge">{st.noLunch} sans horaire</span> : null}>
             <Heat heat={view.heat} best={view.best} />
           </Block>
         </div>

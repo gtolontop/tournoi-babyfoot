@@ -7,7 +7,8 @@ import { Block } from "../components/kit/Block";
 import { StatCard, StatGrid } from "../components/kit/Stat";
 import { ActivityFeed } from "../components/kit/Feed";
 import { Button, Head } from "../components/ui";
-import { Bars, Todo } from "../components/bits";
+import { Heat, Todo } from "../components/bits";
+import { DAY_NAMES, fmt } from "../../shared/lunch";
 
 const DAY = 86400000;
 
@@ -30,10 +31,10 @@ export function Overview() {
   const copy = () => navigator.clipboard.writeText(formUrl).then(() => toast("Lien du formulaire copié"), () => toast(formUrl));
 
   const todos = [];
-  if (st.solo >= 2 && canEdit) todos.push(<Todo key="solo" icon={<UsersRound size={16} />} title={`${plural(st.solo, "joueur")} sans coéquipier`} text="Associés selon leurs disponibilités communes." action={<Button size="small" tone="primary" onClick={() => act("/teams/auto", {}, "Équipes formées")}>Former les équipes</Button>} />);
+  if (st.solo >= 2 && canEdit) todos.push(<Todo key="solo" icon={<UsersRound size={16} />} title={`${plural(st.solo, "joueur")} sans coéquipier`} text="Associés selon leurs pauses du midi communes." action={<Button size="small" tone="primary" onClick={() => act("/teams/auto", {}, "Équipes formées")}>Former les équipes</Button>} />);
   else if (st.solo === 1) todos.push(<Todo key="solo1" icon={<UsersRound size={16} />} title="1 joueur sans coéquipier" text="Il sera associé au prochain inscrit seul." action={<Link className="ui-btn small" to="/equipes">Voir</Link>} />);
   if (st.absent) todos.push(<Todo key="abs" icon={<UserX size={16} />} title={plural(st.absent, "absent")} text="Remplace-les depuis la fiche de leur équipe." action={<Link className="ui-btn small" to="/equipes">Équipes</Link>} />);
-  if (view.best) todos.push(<Todo key="best" icon={<CalendarClock size={16} />} title={`Meilleur créneau : ${view.best.label.toLowerCase()}`} text={`${plural(view.best.teams, "équipe complète", "équipes complètes")} sur ${st.teamsReady} disponibles.`} />);
+  if (view.best) todos.push(<Todo key="best" icon={<CalendarClock size={16} />} title={`Meilleur créneau : ${DAY_NAMES[view.best.day].toLowerCase()} ${fmt(view.best.s)} – ${fmt(view.best.e)}`} text={`${plural(view.best.teams, "équipe complète", "équipes complètes")} sur ${st.teamsReady} disponibles.`} />);
   if (view.suggestion && !t) {
     const s = view.suggestion, e = s[s.pick];
     todos.push(<Todo key="fmt" icon={<Trophy size={16} />} title={s.pick === "rr" ? "Championnat conseillé" : "Élimination directe conseillée"} text={`${e.matches} matchs, environ ${duration(e.minutes)}.`} action={canEdit && <Link className="ui-btn small" to="/tournoi">Préparer</Link>} />);
@@ -41,8 +42,6 @@ export function Overview() {
   if (t) todos.push(<Todo key="t" icon={<Trophy size={16} />} title={t.champion ? `Vainqueur : ${t.champion}` : `Tournoi en cours · ${t.played}/${t.total}`} action={<Link className="ui-btn small" to="/tournoi">Ouvrir</Link>} />);
   if (!todos.length) todos.push(<Todo key="share" icon={<Link2 size={16} />} title="Partage le formulaire" text="Le lien ou le QR code, les inscriptions arrivent ici." action={<Link className="ui-btn small primary" to="/partage">QR code</Link>} />);
 
-  const bestPeriod = view.byPeriod.reduce((a, b) => (b.players > a.players ? b : a), view.byPeriod[0]);
-  const bestDay = view.byDay.reduce((a, b) => (b.players > a.players ? b : a), view.byDay[0]);
 
   return (
     <div className="ui-page">
@@ -63,17 +62,8 @@ export function Overview() {
           <Block title="À faire" sub="Proposé d'après les inscriptions.">
             <div className="t-todos">{todos}</div>
           </Block>
-          <Block title="Disponibilités" sub="Ce que les joueurs ont écrit, ramené par moment et par jour." aside={st.noDispo ? <span className="k-badge">{st.noDispo} sans précision</span> : null}>
-            <div className="t-bars-pair">
-              <div>
-                <span className="t-mini-title">Moment</span>
-                <Bars rows={view.byPeriod} highlight={bestPeriod?.players ? bestPeriod.key : undefined} />
-              </div>
-              <div>
-                <span className="t-mini-title">Jour</span>
-                <Bars rows={view.byDay} highlight={bestDay?.players ? bestDay.key : undefined} />
-              </div>
-            </div>
+          <Block title="Pauses du midi" sub="Joueurs à table, quart d'heure par quart d'heure. Le créneau marqué réunit le plus d'équipes." aside={st.noLunch ? <span className="k-badge">{st.noLunch} sans horaire</span> : null}>
+            <Heat heat={view.heat} best={view.best} />
           </Block>
         </div>
         <Block title="Activité" sub="Inscriptions et changements.">

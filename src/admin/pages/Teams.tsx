@@ -30,7 +30,7 @@ export function Teams() {
       </Head>
 
       {waiting.length > 0 && (
-        <Block title={`Sans coéquipier · ${waiting.length}`} sub="La formation automatique associe ceux qui ont le plus de disponibilités en commun.">
+        <Block title={`Sans coéquipier · ${waiting.length}`} sub="La formation automatique associe ceux qui mangent aux mêmes heures.">
           <div className="t-waiting">
             {waiting.map((p) => (
               <span key={p.id} className="t-chip">
@@ -55,7 +55,7 @@ export function Teams() {
                 ) : (
                   <div key={i} className="t-member empty"><Avatar name="?" /><span>Place libre</span></div>
                 ))}
-                <small className="t-team-foot">{t.complete ? (t.summary ? `Libres ensemble : ${t.summary.toLowerCase()}` : "Pas de disponibilité commune connue") : "En attente d'un joueur"}</small>
+                <small className="t-team-foot">{t.complete ? (t.summary ? `Ensemble : ${t.summary}` : "Aucune pause en commun") : "En attente d'un joueur"}</small>
               </div>
             );
           })}

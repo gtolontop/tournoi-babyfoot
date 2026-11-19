@@ -3,7 +3,8 @@ import { Hono } from "hono";
 import QRCode from "qrcode";
 import { backup, logEvent, save, state, uid, type Session } from "./store.ts";
 import { checkPass, closeSession, genPass, hashPass, ipOf, limited, openSession, sessionOf } from "./auth.ts";
-import { autoTeams, cap, cleanupTeams, clean, fullName, generate, must, norm, P, PUBLIC_URL, readContact, resolve, T, teamName, teamOf, UserError, view } from "./logic.ts";
+import { autoTeams, cap, cleanupTeams, clean, fullName, generate, must, norm, P, plan, PUBLIC_URL, readContact, readLunch, resolve, T, teamName, teamOf, UserError, view } from "./logic.ts";
+import { fmt, summary } from "../shared/lunch.ts";
 
 type Env = { Variables: { sess: Session & { sid: string } } };
 export const api = new Hono<Env>();
@@ -63,10 +64,10 @@ api.get("/qr", async (c) => {
 
 api.get("/export.csv", (c) => {
   const q = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const rows = [["Prénom", "Nom", "Contact", "Type", "Équipe", "Coéquipier", "Disponibilités", "Absent", "Inscrit le"]];
+  const rows = [["Prénom", "Nom", "Contact", "Type", "Équipe", "Coéquipier", "Pause du midi", "Absent", "Inscrit le"]];
   for (const p of state.players) {
     const t = teamOf(p.id);
-    rows.push([p.first, p.last, p.contact?.value ?? "", p.contact?.kind ?? "", t ? teamName(t) : "", t ? fullName(P(t.a === p.id ? t.b : t.a)) : "", p.dispo, p.absent ? "oui" : "", new Date(p.at).toLocaleString("fr-FR", { timeZone: "Europe/Paris" })]);
+    rows.push([p.first, p.last, p.contact?.value ?? "", p.contact?.kind ?? "", t ? teamName(t) : "", t ? fullName(P(t.a === p.id ? t.b : t.a)) : "", summary(p.lunch) || p.dispo, p.absent ? "oui" : "", new Date(p.at).toLocaleString("fr-FR", { timeZone: "Europe/Paris" })]);
   }
   return c.body("﻿" + rows.map((r) => r.map(q).join(";")).join("\r\n"), 200, { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": 'attachment; filename="inscriptions.csv"' });
 });
@@ -87,20 +88,28 @@ const writes: Record<string, Fn> = {
     if (b.publicBoard !== undefined) s.publicBoard = !!b.publicBoard;
     if (b.tables !== undefined) s.tables = Math.max(1, Math.min(20, Number(b.tables) || 1));
     if (b.matchMinutes !== undefined) s.matchMinutes = Math.max(2, Math.min(90, Number(b.matchMinutes) || 10));
+    if (Array.isArray(b.days)) { const d = [...new Set(b.days.map(Number).filter((x: number) => Number.isInteger(x) && x >= 0 && x < 5))].sort() as number[]; must(d.length, "Garde au moins un jour."); s.days = d; }
+    const t = (v: unknown, def: number) => { const n = Math.round(Number(v) / 15) * 15; return Number.isFinite(n) ? Math.max(9 * 60, Math.min(16 * 60, n)) : def; };
+    if (b.lunchFrom !== undefined || b.lunchTo !== undefined) {
+      const from = t(b.lunchFrom ?? s.lunchFrom, s.lunchFrom), to = t(b.lunchTo ?? s.lunchTo, s.lunchTo);
+      must(to - from >= 30, "La pause doit durer au moins 30 minutes.");
+      Object.assign(s, { lunchFrom: from, lunchTo: to });
+    }
   }),
   "/player": edit((b, s) => {
     const first = cap(b.first), last = cap(b.last);
     must(first && last, "Prénom et nom requis.");
-    const contact = readContact(b.contactKind, b.contact);
+    const contact = readContact(b.contact);
+    const lunch = readLunch(b.lunch);
     if (b.id) {
       const p = P(b.id);
       must(p, "Joueur introuvable.");
-      Object.assign(p, { first, last, contact, dispo: clean(b.dispo, 200) });
+      Object.assign(p, { first, last, contact, lunch });
       logEvent(`Fiche de ${fullName(p)} modifiée`, s.label);
       return;
     }
     must(!state.players.some((p) => norm(`${p.first} ${p.last}`) === norm(`${first} ${last}`)), "Ce joueur existe déjà.");
-    const p = { id: uid(6), first, last, contact, dispo: clean(b.dispo, 200), by: "staff" as const, confirmed: true, absent: false, at: Date.now() };
+    const p = { id: uid(6), first, last, contact, lunch, dispo: "", by: "staff" as const, confirmed: true, absent: false, at: Date.now() };
     state.players.push(p);
     logEvent(`${fullName(p)} ajouté par l'organisation`, s.label);
     return { id: p.id };
@@ -160,6 +169,11 @@ const writes: Record<string, Fn> = {
     generate(b.format === "rr" ? "rr" : "elim", ids, b.shuffle !== false);
     logEvent(`Tournoi lancé : ${b.format === "rr" ? "championnat" : "élimination directe"}, ${ids.length} équipes`, s.label);
   }),
+  "/tournament/plan": edit((b, s) => {
+    const r = plan(!!b.replan);
+    logEvent(`${r.placed} match${r.placed > 1 ? "s" : ""} calé${r.placed > 1 ? "s" : ""} sur les pauses${r.missing ? `, ${r.missing} sans créneau commun` : ""}`, s.label);
+    return r;
+  }),
   "/tournament/delete": edit((_, s) => { state.tournament = null; logEvent("Tournoi réinitialisé", s.label); }),
   "/tournament/swap": edit((b, s) => {
     const t = state.tournament;
@@ -175,6 +189,11 @@ const writes: Record<string, Fn> = {
     const m = t.matches.find((x) => x.id === b.id);
     must(m, "Match introuvable.");
     must(m.a && m.b, "Les deux équipes ne sont pas encore connues.");
+    if (b.when !== undefined) {
+      const w = b.when;
+      m.when = w && Number.isInteger(w.day) && state.settings.days.includes(w.day) && Number.isFinite(w.start) ? { day: w.day, start: Math.round(w.start) } : null;
+      if (b.sa === undefined && !b.clear && !b.forfeit) { logEvent(m.when ? `Match ${teamName(T(m.a))} – ${teamName(T(m.b))} prévu ${fmt(m.when.start)}` : "Créneau retiré", s.label); return; }
+    }
     if (b.clear) Object.assign(m, { sa: null, sb: null, w: null, ff: false });
     else if (b.forfeit === "a" || b.forfeit === "b") Object.assign(m, { w: b.forfeit === "a" ? "b" : "a", ff: true, sa: null, sb: null });
     else {

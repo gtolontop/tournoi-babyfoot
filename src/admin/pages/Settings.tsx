@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { useStore } from "../lib/api";
 import { Block } from "../components/kit/Block";
+import { DAY_NAMES, fmt, steps } from "../../shared/lunch";
+import { cx } from "../lib/ui";
 import { Button, Confirm, Field, Head, Switch } from "../components/ui";
 
 export function SettingsPage() {
@@ -27,7 +29,7 @@ export function SettingsPage() {
               <Field label="Date"><input value={form.date} onChange={set("date")} placeholder="Jeudi 27 novembre" maxLength={60} /></Field>
               <Field label="Lieu"><input value={form.place} onChange={set("place")} placeholder="Foyer, bâtiment B" maxLength={80} /></Field>
             </div>
-            <Field label="Phrase sous le titre du formulaire" hint="Par défaut : « Seul ou à deux. »"><input value={form.welcome} onChange={set("welcome")} maxLength={160} /></Field>
+            <Field label="Phrase sous le titre du formulaire" hint="Vide par défaut."><input value={form.welcome} onChange={set("welcome")} maxLength={160} /></Field>
             <div className="t-pair">
               <Field label="Tables de baby-foot"><input type="number" min={1} max={20} value={form.tables} onChange={set("tables")} /></Field>
               <Field label="Minutes par match"><input type="number" min={2} max={90} value={form.matchMinutes} onChange={set("matchMinutes")} /></Field>
@@ -40,10 +42,30 @@ export function SettingsPage() {
             <Switch label="Inscriptions ouvertes" hint="Fermé, le formulaire annonce que les inscriptions sont closes." checked={s.open} onChange={(v) => act("/settings", { open: v }, v ? "Inscriptions ouvertes" : "Inscriptions fermées")} />
             <Switch label="Tableau public" hint="La page /tableau, lisible sans mot de passe." checked={s.publicBoard} onChange={(v) => act("/settings", { publicBoard: v })} />
           </Block>
+          <LunchBlock />
           {view.me.role === "admin" && <AdminBlock />}
         </div>
       </div>
     </div>
+  );
+}
+
+// Les jours de tournoi et les heures proposées dans le formulaire.
+function LunchBlock() {
+  const { view, act } = useStore();
+  const s = view.settings;
+  const hours = steps(9 * 60, 16 * 60, 15);
+  const toggle = (d: number) => act("/settings", { days: s.days.includes(d) ? s.days.filter((x) => x !== d) : [...s.days, d] });
+  return (
+    <Block title="Pause du midi" sub="Les jours proposés dans le formulaire et les heures entre lesquelles on choisit.">
+      <div className="t-days">
+        {DAY_NAMES.map((n, d) => <button key={d} type="button" className={cx("t-day", s.days.includes(d) && "on")} aria-pressed={s.days.includes(d)} onClick={() => toggle(d)}>{n.slice(0, 3)}</button>)}
+      </div>
+      <div className="t-pair">
+        <Field label="De"><select value={s.lunchFrom} onChange={(e) => act("/settings", { lunchFrom: Number(e.target.value) })}>{hours.map((m) => <option key={m} value={m}>{fmt(m)}</option>)}</select></Field>
+        <Field label="À"><select value={s.lunchTo} onChange={(e) => act("/settings", { lunchTo: Number(e.target.value) })}>{hours.map((m) => <option key={m} value={m}>{fmt(m)}</option>)}</select></Field>
+      </div>
+    </Block>
   );
 }
 

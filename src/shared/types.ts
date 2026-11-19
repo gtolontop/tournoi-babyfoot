@@ -1,4 +1,5 @@
 // Ce que le serveur garde et ce que l'espace d'organisation reçoit.
+import type { Lunch, Window } from "./lunch";
 
 export type ContactKind = "insta" | "tel" | "email";
 export type Contact = { kind: ContactKind; value: string };
@@ -8,7 +9,8 @@ export type Player = {
   first: string;
   last: string;
   contact: Contact | null;
-  dispo: string; // tel qu'écrit par le joueur
+  lunch: Lunch; // pause du midi, jour par jour
+  dispo: string; // ancienne disponibilité écrite, gardée pour les premières inscriptions
   by: "self" | "partner" | "staff";
   confirmed: boolean;
   absent: boolean;
@@ -29,6 +31,7 @@ export type Match = {
   ff?: boolean;
   bye?: boolean;
   table?: string;
+  when?: { day: number; start: number } | null; // créneau prévu
 };
 
 export type Format = "elim" | "rr";
@@ -43,6 +46,9 @@ export type Settings = {
   publicBoard: boolean;
   tables: number;
   matchMinutes: number;
+  days: number[]; // jours de tournoi, 0 = lundi
+  lunchFrom: number; // bornes du midi, en minutes
+  lunchTo: number;
 };
 
 export type Role = "admin" | "manage" | "view";
@@ -51,9 +57,9 @@ export type LogLine = { at: number; text: string; who: string };
 
 /* ---------- La vue envoyée au navigateur ---------- */
 
-export type PlayerView = Player & { team: string | null; mate: string | null; slots: string[]; any: boolean; summary: string };
-export type TeamView = Team & { label: string; complete: boolean; absent: boolean; slots: string[]; summary: string; inTournament: boolean };
-export type MatchView = Match & { an: string | null; bn: string | null };
+export type PlayerView = Player & { team: string | null; mate: string | null; summary: string; free: number };
+export type TeamView = Team & { label: string; complete: boolean; absent: boolean; common: Window[]; summary: string; longest: number; inTournament: boolean };
+export type MatchView = Match & { an: string | null; bn: string | null; windows: Window[]; fits: boolean };
 export type StandingRow = { id: string; name: string; j: number; v: number; n: number; d: number; bp: number; bc: number; pts: number };
 export type TournamentView = Omit<Tournament, "matches"> & {
   matches: MatchView[];
@@ -71,11 +77,10 @@ export type View = {
   settings: Settings;
   players: PlayerView[];
   teams: TeamView[];
-  stats: { players: number; present: number; absent: number; teamsReady: number; solo: number; duo: number; today: number; noDispo: number };
-  // disponibilités : joueurs par moment et par jour, et le créneau qui réunit le plus d'équipes complètes
-  byPeriod: { key: string; label: string; players: number }[];
-  byDay: { key: string; label: string; players: number }[];
-  best: { slot: string; label: string; teams: number } | null;
+  stats: { players: number; present: number; absent: number; teamsReady: number; solo: number; duo: number; today: number; noLunch: number };
+  // la pause du midi : joueurs libres par jour et par quart d'heure, et le créneau qui réunit le plus d'équipes
+  heat: { from: number; to: number; step: number; days: { day: number; counts: number[]; players: number }[] };
+  best: { day: number; s: number; e: number; teams: number } | null;
   suggestion: { pick: Format; why: string; elim: Estimate; rr: Estimate } | null;
   tournament: TournamentView | null;
   links: Omit<Link, "passHash">[];

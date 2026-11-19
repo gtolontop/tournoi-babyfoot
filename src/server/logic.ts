@@ -1,6 +1,7 @@
-// Les règles du tournoi : inscriptions, équipes, tableau, classement, et la vue envoyée à l'espace d'organisation.
-import { common, overlap, parseDispo, slotLabel, summary, DAYS, DAY_NAMES, PERIODS, PERIOD_NAMES, type Dispo } from "../shared/dispo.ts";
-import type { Contact, ContactKind, Estimate, Format, Match, Player, Team, View } from "../shared/types.ts";
+// Les règles du tournoi : inscriptions, équipes, tableau, classement, calage des matchs sur les pauses du midi, et la
+// vue envoyée à l'espace d'organisation.
+import { cleanLunch, DAY_NAMES, fmt, intersect, steps, summary, total, type Lunch, type Window } from "../shared/lunch.ts";
+import type { Contact, Estimate, Format, Match, Player, Team, View } from "../shared/types.ts";
 import { logEvent, save, state, uid, type Session } from "./store.ts";
 
 export class UserError extends Error {}
@@ -23,29 +24,36 @@ export function teamName(t?: Team) {
   return [P(t.a)?.first, P(t.b)?.first].filter(Boolean).join(" & ") || "Équipe";
 }
 
-const dispoCache = new Map<string, Dispo>();
-export function dispoOf(p?: Player): Dispo {
-  if (!p) return { any: false, slots: [] };
-  let d = dispoCache.get(p.dispo);
-  if (!d) { d = parseDispo(p.dispo); dispoCache.set(p.dispo, d); }
-  return d;
-}
-const teamDispo = (t: Team): Dispo => {
-  const a = P(t.a), b = P(t.b);
-  if (!a || !b) return dispoOf(a || b);
-  return { any: false, slots: common(dispoOf(a), dispoOf(b)) };
+/* ---------- Pauses du midi ---------- */
+
+export const readLunch = (raw: unknown) => cleanLunch(raw, state.settings.days, state.settings.lunchFrom, state.settings.lunchTo);
+const lunchOf = (p?: Player): Lunch => p?.lunch ?? {};
+const members = (t?: Team) => [P(t?.a), P(t?.b)].filter(Boolean) as Player[];
+export const teamWindows = (t?: Team): Window[] => { const m = members(t); return m.length ? intersect(...m.map(lunchOf)) : []; };
+export const matchWindows = (m: Match): Window[] => {
+  const ps = [...members(T(m.a)), ...members(T(m.b))];
+  return ps.length ? intersect(...ps.map(lunchOf)).filter((w) => state.settings.days.includes(w.day)) : [];
+};
+// Minutes communes : sert à associer les joueurs seuls. Sans pause renseignée, on ne le met pas de côté.
+const overlap = (a: Player, b: Player) => {
+  if (!Object.keys(a.lunch ?? {}).length || !Object.keys(b.lunch ?? {}).length) return 30;
+  return total(intersect(a.lunch, b.lunch));
 };
 
-/* ---------- Contact ---------- */
+/* ---------- Contact : un seul champ, on reconnaît ce que c'est ---------- */
 
-export function readContact(kind: unknown, value: unknown): Contact | null {
+export function readContact(value: unknown): Contact | null {
   const v = clean(value, 80);
   if (!v) return null;
-  const k: ContactKind = kind === "tel" || kind === "email" ? kind : "insta";
-  if (k === "email") must(/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v), "L'adresse email n'a pas l'air valide.");
-  if (k === "tel") must(/^[+\d][\d .()-]{6,}$/.test(v), "Le numéro n'a pas l'air valide.");
-  if (k === "insta") must(/^@?[\w.]{1,30}$/.test(v), "Le pseudo Instagram n'a pas l'air valide.");
-  return { kind: k, value: k === "insta" ? v.replace(/^@/, "") : v };
+  if (v.includes("@") && /\.[a-z]{2,}$/i.test(v) && !v.startsWith("@")) {
+    must(/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(v), "L'adresse email n'a pas l'air valide.");
+    return { kind: "email", value: v.toLowerCase() };
+  }
+  const digits = v.replace(/[\s.()-]/g, "");
+  if (/^\+?\d{6,15}$/.test(digits)) return { kind: "tel", value: v };
+  const handle = v.replace(/^@/, "").replace(/^(https?:\/\/)?(www\.)?instagram\.com\//i, "").replace(/\/.*$/, "");
+  must(/^[\w.]{1,30}$/.test(handle), "Contact non reconnu : un pseudo Instagram, un numéro ou un email.");
+  return { kind: "insta", value: handle };
 }
 
 /* ---------- Inscription ---------- */
@@ -61,23 +69,27 @@ export function register(d: Record<string, unknown>): Recap {
   const mf = cap(d.mfirst), ml = cap(d.mlast);
   if (duo) must(mf && ml, "Indique le prénom et le nom de ton coéquipier.");
   if (duo) must(norm(mf + ml) !== norm(first + last), "Ton coéquipier ne peut pas être toi.");
-  const contact = readContact(d.contactKind, d.contact);
-  const dispo = clean(d.dispo, 200);
+  const contact = readContact(d.contact);
+  // Avec le script : lunch = { jour: [début, fin] }. Sans script : les champs l{jour}s / l{jour}e du formulaire.
+  const rawLunch = d.lunch ? (typeof d.lunch === "string" ? safeJson(d.lunch) : d.lunch)
+    : Object.fromEntries([0, 1, 2, 3, 4].map((i) => [i, [d[`l${i}s`], d[`l${i}e`]]]).filter(([, r]) => (r as unknown[]).every((x) => x !== "" && x != null)));
+  const lunch = readLunch(rawLunch);
+  must(Object.keys(lunch).length, "Indique au moins un jour où tu manges au lycée.");
   must(state.players.length < 2000, "Trop d'inscriptions.");
 
   const key = norm(`${first} ${last}`);
   const existing = state.players.find((p) => norm(`${p.first} ${p.last}`) === key);
   if (existing) {
-    // Son coéquipier l'avait inscrit : il complète sa fiche.
+    // Son coéquipier l'avait inscrit : il complète sa fiche avec ses propres horaires.
     must(existing.by === "partner" && !existing.confirmed, `${first} ${last} est déjà inscrit. Si c'est une erreur, préviens l'organisation.`);
-    Object.assign(existing, { dispo: dispo || existing.dispo, contact: contact ?? existing.contact, confirmed: true });
+    Object.assign(existing, { lunch, contact: contact ?? existing.contact, confirmed: true });
     logEvent(`${fullName(existing)} a confirmé son inscription`);
     save();
     const m = mateOf(existing.id);
-    return { title: "Inscription confirmée", text: m ? `${fullName(m)} t'avait déjà inscrit.` : "Ta fiche est à jour.", lines: recap(existing) };
+    return { title: "Inscription confirmée", text: m ? `${fullName(m)} t'avait déjà inscrit. Tes horaires sont à jour.` : "Ta fiche est à jour.", lines: recap(existing) };
   }
 
-  const me: Player = { id: uid(6), first, last, contact, dispo, by: "self", confirmed: true, absent: false, at: Date.now() };
+  const me: Player = { id: uid(6), first, last, contact, lunch, dispo: "", by: "self", confirmed: true, absent: false, at: Date.now() };
   state.players.push(me);
   if (duo) {
     let mate = state.players.find((p) => p.id !== me.id && norm(`${p.first} ${p.last}`) === norm(`${mf} ${ml}`));
@@ -91,8 +103,9 @@ export function register(d: Record<string, unknown>): Recap {
       }
       if (mateTeam.a) mateTeam.b = me.id; else mateTeam.a = me.id;
     } else {
+      // Le coéquipier prend les mêmes horaires en attendant qu'il s'inscrive lui-même.
       if (!mate) {
-        mate = { id: uid(6), first: mf, last: ml, contact: null, dispo, by: "partner", confirmed: false, absent: false, at: Date.now() };
+        mate = { id: uid(6), first: mf, last: ml, contact: null, lunch: { ...lunch }, dispo: "", by: "partner", confirmed: false, absent: false, at: Date.now() };
         state.players.push(mate);
       }
       state.teams.push({ id: uid(6), a: me.id, b: mate.id, name: "", origin: "duo", at: Date.now() });
@@ -100,16 +113,20 @@ export function register(d: Record<string, unknown>): Recap {
     logEvent(`${fullName(me)} s'est inscrit avec ${fullName(mate)}`);
   } else logEvent(`${fullName(me)} s'est inscrit seul`);
   save();
-  return { title: "Inscription envoyée", text: duo ? "Vous êtes inscrits tous les deux. On vous recontacte pour l'horaire." : "On te trouve un coéquipier et on te recontacte pour l'horaire.", lines: recap(me) };
+  return {
+    title: "Inscription envoyée",
+    text: duo ? `On a noté vos horaires. ${mf} peut aussi s'inscrire pour mettre les siens.` : "On te trouve un coéquipier et on te dit quand tu joues.",
+    lines: recap(me),
+  };
 }
+const safeJson = (s: string) => { try { return JSON.parse(s); } catch { return null; } };
 
-const CONTACT_LABEL: Record<ContactKind, string> = { insta: "Instagram", tel: "Téléphone", email: "Email" };
 function recap(p: Player): [string, string][] {
   const out: [string, string][] = [["Joueur", fullName(p)]];
   const m = mateOf(p.id);
   out.push(["Coéquipier", m ? fullName(m) : "À trouver"]);
-  if (p.contact) out.push([CONTACT_LABEL[p.contact.kind], p.contact.kind === "insta" ? "@" + p.contact.value : p.contact.value]);
-  if (p.dispo) out.push(["Disponibilités", p.dispo]);
+  if (p.contact) out.push(["Contact", p.contact.kind === "insta" ? "@" + p.contact.value : p.contact.value]);
+  for (const [d, r] of Object.entries(p.lunch)) out.push([DAY_NAMES[Number(d)], `${fmt(r![0])} – ${fmt(r![1])}`]);
   return out;
 }
 
@@ -119,23 +136,25 @@ export function cleanupTeams() {
   state.teams = state.teams.filter((t) => t.a || t.b || inTournament(t.id));
 }
 
-// Associe les joueurs seuls ; les incomplètes se complètent d'abord. Le moins disponible choisit en premier.
+// Associe les joueurs seuls selon leurs pauses communes ; les incomplètes se complètent d'abord. Le joueur qui mange
+// le moins souvent au lycée choisit en premier.
 export function autoTeams() {
   const free = state.players.filter((p) => !p.absent && !teamOf(p.id));
   for (const t of state.teams) {
     if ((t.a && t.b) || inTournament(t.id) || !free.length) continue;
     const have = P(t.a || t.b);
     if (!have || have.absent) continue;
-    free.sort((x, y) => overlap(dispoOf(y), dispoOf(have)) - overlap(dispoOf(x), dispoOf(have)));
+    free.sort((x, y) => overlap(y, have) - overlap(x, have));
     const m = free.shift()!;
     if (t.a) t.b = m.id; else t.a = m.id;
   }
   let made = 0;
+  const freeTime = (p: Player) => total(intersect(p.lunch)) || 9999;
   while (free.length >= 2) {
-    free.sort((x, y) => (dispoOf(x).slots.length || 99) - (dispoOf(y).slots.length || 99));
+    free.sort((x, y) => freeTime(x) - freeTime(y));
     const p = free.shift()!;
     let best = 0;
-    for (let i = 1; i < free.length; i++) if (overlap(dispoOf(p), dispoOf(free[i])) > overlap(dispoOf(p), dispoOf(free[best]))) best = i;
+    for (let i = 1; i < free.length; i++) if (overlap(p, free[i]) > overlap(p, free[best])) best = i;
     const q = free.splice(best, 1)[0];
     state.teams.push({ id: uid(6), a: p.id, b: q.id, name: "", origin: "auto", at: Date.now() });
     made++;
@@ -193,7 +212,7 @@ export function resolve() {
     for (const m of rounds[r]) {
       if (r > 0) {
         const a = winnerOf(rounds[r - 1][m.pos! * 2]), b = winnerOf(rounds[r - 1][m.pos! * 2 + 1]);
-        if (m.a !== a || m.b !== b) Object.assign(m, { a, b, sa: null, sb: null, w: null, ff: false });
+        if (m.a !== a || m.b !== b) Object.assign(m, { a, b, sa: null, sb: null, w: null, ff: false, when: null });
       }
       m.bye = false;
       if (r === 0 && m.a && !m.b) Object.assign(m, { w: "a", bye: true });
@@ -202,12 +221,43 @@ export function resolve() {
   }
 }
 
+const playable = (m: Match) => !!(m.a && m.b && !m.bye);
+const done = (m: Match) => !!(m.w || (m.sa != null && m.sb != null));
+
+// Cale les matchs à jouer sur les pauses du midi : le premier jour et la première heure où les quatre joueurs mangent
+// en même temps assez longtemps, sans dépasser le nombre de tables. Un match déjà calé à la main garde son créneau.
+export function plan(replan: boolean) {
+  const t = state.tournament;
+  must(t, "Pas de tournoi en cours.");
+  const { tables, matchMinutes: mm, days } = state.settings;
+  const todo = t.matches.filter((m) => playable(m) && !done(m));
+  if (replan) for (const m of todo) m.when = null;
+  const busy: { day: number; s: number; e: number; teams: string[] }[] = todo.filter((m) => m.when).map((m) => ({ day: m.when!.day, s: m.when!.start, e: m.when!.start + mm, teams: [m.a!, m.b!] }));
+  let placed = 0, missing = 0;
+  // Les matchs les plus difficiles d'abord : le moins de temps en commun.
+  const queue = todo.filter((m) => !m.when).map((m) => ({ m, ws: matchWindows(m) })).sort((a, b) => total(a.ws) - total(b.ws));
+  for (const { m, ws } of queue) {
+    const find = (): { day: number; start: number } | null => {
+      for (const d of days) for (const w of ws.filter((x) => x.day === d)) for (let s = w.s; s + mm <= w.e; s += 5) {
+        const clash = busy.filter((b) => b.day === d && b.s < s + mm && b.e > s);
+        if (clash.length < tables && !clash.some((b) => b.teams.includes(m.a!) || b.teams.includes(m.b!))) return { day: d, start: s };
+      }
+      return null;
+    };
+    const slot = find();
+    m.when = slot;
+    if (slot) { busy.push({ day: slot.day, s: slot.start, e: slot.start + mm, teams: [m.a!, m.b!] }); placed++; }
+    else missing++;
+  }
+  return { placed, missing };
+}
+
 function standings() {
   const t = state.tournament!;
   const rows = new Map(t.teams.map((id) => [id, { id, name: teamName(T(id)), j: 0, v: 0, n: 0, d: 0, bp: 0, bc: 0, pts: 0 }]));
   for (const m of t.matches) {
     const A = rows.get(m.a!), B = rows.get(m.b!);
-    if (!A || !B || (!m.w && (m.sa == null || m.sb == null))) continue;
+    if (!A || !B || !done(m)) continue;
     A.j++; B.j++;
     A.bp += m.sa ?? 0; A.bc += m.sb ?? 0; B.bp += m.sb ?? 0; B.bc += m.sa ?? 0;
     if (m.w === "a") { A.v++; B.d++; A.pts += 3; } else if (m.w === "b") { B.v++; A.d++; B.pts += 3; } else { A.n++; B.n++; A.pts++; B.pts++; }
@@ -235,16 +285,20 @@ export function roundName(r: number, total: number) {
 export function tournamentView() {
   const t = state.tournament;
   if (!t) return null;
+  const mm = state.settings.matchMinutes;
   const totalRounds = t.format === "elim" ? Math.max(...t.matches.map((m) => m.round)) + 1 : 0;
   const final = t.format === "elim" ? t.matches.find((m) => m.round === totalRounds - 1) : undefined;
   const real = t.matches.filter((m) => !m.bye && !(m.round === 0 && !m.a && !m.b));
   return {
     ...t,
     totalRounds,
-    matches: t.matches.map((m) => ({ ...m, an: m.a ? teamName(T(m.a)) : null, bn: m.b ? teamName(T(m.b)) : null })),
+    matches: t.matches.map((m) => {
+      const windows = playable(m) ? matchWindows(m) : [];
+      return { ...m, an: m.a ? teamName(T(m.a)) : null, bn: m.b ? teamName(T(m.b)) : null, windows, fits: windows.some((w) => w.e - w.s >= mm) };
+    }),
     standings: t.format === "rr" ? standings() : null,
     champion: final?.w ? teamName(T(winnerOf(final))) : null,
-    played: real.filter((m) => m.w || (m.sa != null && m.sb != null)).length,
+    played: real.filter(done).length,
     total: real.length,
   };
 }
@@ -252,22 +306,43 @@ export function tournamentView() {
 /* ---------- La vue ---------- */
 
 export function view(sess: Session): View {
+  const { days, lunchFrom, lunchTo, matchMinutes: mm } = state.settings;
   const players = state.players.map((p) => {
-    const t = teamOf(p.id), d = dispoOf(p);
-    return { ...p, team: t?.id ?? null, mate: t ? fullName(mateOf(p.id)) : null, slots: d.slots, any: d.any, summary: summary(d) };
+    const t = teamOf(p.id);
+    return { ...p, team: t?.id ?? null, mate: t ? fullName(mateOf(p.id)) : null, summary: summary(p.lunch), free: total(intersect(p.lunch)) };
   });
   const teams = state.teams.map((t) => {
-    const a = P(t.a), b = P(t.b), d = teamDispo(t);
-    return { ...t, label: teamName(t), complete: !!(a && b), absent: !!(a?.absent || b?.absent), slots: d.slots, summary: summary(d), inTournament: inTournament(t.id) };
+    const a = P(t.a), b = P(t.b), common = teamWindows(t).filter((w) => days.includes(w.day));
+    return { ...t, label: teamName(t), complete: !!(a && b), absent: !!(a?.absent || b?.absent), common, summary: summary(common), longest: Math.max(0, ...common.map((w) => w.e - w.s)), inTournament: inTournament(t.id) };
   });
   const ready = teams.filter((t) => t.complete && !t.absent);
-  const present = players.filter((p) => !p.absent);
-  const has = (p: (typeof players)[number], pred: (slot: string) => boolean) => p.slots.some(pred);
-  const byPeriod = PERIODS.map((k) => ({ key: k, label: PERIOD_NAMES[k], players: present.filter((p) => has(p, (s) => s.endsWith(":" + k))).length }));
-  const byDay = DAYS.map((_, i) => ({ key: String(i), label: DAY_NAMES[i], players: present.filter((p) => has(p, (s) => s.startsWith(i + ":"))).length }));
-  const counts = new Map<string, number>();
-  for (const t of ready) for (const s of t.slots) counts.set(s, (counts.get(s) ?? 0) + 1);
-  const top = [...counts].sort((a, b) => b[1] - a[1])[0];
+  const present = state.players.filter((p) => !p.absent);
+
+  // Joueurs libres à chaque quart d'heure, et le moment qui réunit le plus d'équipes complètes pour un match entier.
+  const step = 15;
+  const grid = steps(lunchFrom, lunchTo - step, step);
+  const heat = {
+    from: lunchFrom, to: lunchTo, step,
+    days: days.map((d) => ({
+      day: d,
+      players: present.filter((p) => p.lunch[d]).length,
+      counts: grid.map((m) => present.filter((p) => { const r = p.lunch[d]; return r && r[0] <= m && r[1] >= m + step; }).length),
+    })),
+  };
+  let best: View["best"] = null;
+  for (const d of days) {
+    for (let s = lunchFrom; s + mm <= lunchTo; s += 5) {
+      const n = ready.filter((t) => t.common.some((w) => w.day === d && w.s <= s && w.e >= s + mm)).length;
+      if (n && (!best || n > best.teams)) best = { day: d, s, e: s + mm, teams: n };
+    }
+  }
+  // Le créneau conseillé s'étend tant que le même nombre d'équipes reste disponible.
+  if (best) {
+    const b = best;
+    const count = (s: number) => ready.filter((t) => t.common.some((w) => w.day === b.day && w.s <= s && w.e >= s + mm)).length;
+    while (b.e + 5 <= lunchTo && count(b.e + 5 - mm) === b.teams) b.e += 5;
+  }
+
   const n = ready.length;
   return {
     me: { role: sess.role, label: sess.label },
@@ -280,14 +355,13 @@ export function view(sess: Session): View {
       present: present.length,
       absent: players.length - present.length,
       teamsReady: n,
-      solo: present.filter((p) => !p.team).length,
+      solo: players.filter((p) => !p.absent && !p.team).length,
       duo: state.teams.filter((t) => t.origin === "duo").length,
       today: state.players.filter((p) => p.by !== "partner" && Date.now() - p.at < 86400000).length,
-      noDispo: present.filter((p) => !p.slots.length).length,
+      noLunch: present.filter((p) => !Object.keys(p.lunch).length).length,
     },
-    byPeriod,
-    byDay,
-    best: top ? { slot: top[0], label: slotLabel(top[0]), teams: top[1] } : null,
+    heat,
+    best,
     suggestion: n < 2 ? null : {
       pick: n <= 5 ? "rr" : "elim",
       why: n <= 5 ? `Avec ${n} équipes, un championnat donne plusieurs matchs à chacun.` : `Avec ${n} équipes, l'élimination directe reste courte.`,

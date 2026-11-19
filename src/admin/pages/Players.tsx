@@ -1,14 +1,14 @@
 import { useMemo, useState } from "react";
 import { Download, Plus, Search } from "lucide-react";
-import type { ContactKind, PlayerView } from "../../shared/types";
-import { parseDispo, summary } from "../../shared/dispo";
+import type { PlayerView } from "../../shared/types";
+import type { Lunch } from "../../shared/lunch";
 import { useStore } from "../lib/api";
 import { ago, fold } from "../lib/ui";
 import { Block } from "../components/kit/Block";
 import { DataTable } from "../components/kit/Table";
-import { Segmented, Tabs } from "../components/kit/Tabs";
+import { Tabs } from "../components/kit/Tabs";
 import { Button, Confirm, Field, Head, Panel, Pill } from "../components/ui";
-import { CONTACT, ContactLink } from "../components/bits";
+import { ContactLink, LunchEditor } from "../components/bits";
 
 type Filter = "all" | "solo" | "team" | "absent";
 
@@ -28,7 +28,7 @@ export function Players() {
     const k = fold(q.trim());
     return view.players
       .filter((p) => filter === "all" || (filter === "solo" ? !p.team && !p.absent : filter === "team" ? !!p.team : p.absent))
-      .filter((p) => !k || fold(`${p.first} ${p.last} ${p.mate ?? ""} ${p.contact?.value ?? ""} ${p.dispo}`).includes(k))
+      .filter((p) => !k || fold(`${p.first} ${p.last} ${p.mate ?? ""} ${p.contact?.value ?? ""} ${p.summary} ${p.dispo}`).includes(k))
       .sort((a, b) => b.at - a.at);
   }, [view.players, filter, q]);
 
@@ -66,9 +66,8 @@ export function Players() {
               </span>
             ) },
             { key: "team", label: "Équipe", cell: (p) => p.absent ? <Pill tone="tint">Absent</Pill> : p.team ? <Pill tone="ok">avec {p.mate?.split(" ")[0]}</Pill> : <Pill tone="muted">Seul</Pill> },
-            { key: "dispo", label: "Disponibilités", phone: false, cell: (p) => p.dispo ? (
-              <span className="t-dispo"><span className="ellipsis" title={p.dispo}>{p.dispo}</span>{p.summary && <small>{p.summary}</small>}</span>
-            ) : <span className="muted">—</span> },
+            { key: "lunch", label: "Pause du midi", phone: false, cell: (p) => p.summary ? <span className="t-dispo"><span className="ellipsis" title={p.summary}>{p.summary}</span></span>
+              : p.dispo ? <span className="t-dispo"><span className="ellipsis muted" title={p.dispo}>{p.dispo}</span></span> : <span className="muted">—</span> },
             { key: "contact", label: "Contact", phone: false, cell: (p) => <ContactLink c={p.contact} /> },
           ]}
         />
@@ -79,19 +78,18 @@ export function Players() {
 }
 
 function PlayerPanel({ player: p, onClose }: { player: PlayerView | null; onClose: () => void }) {
-  const { act } = useStore();
+  const { act, view } = useStore();
+  const st = view.settings;
   const [first, setFirst] = useState(p?.first ?? "");
   const [last, setLast] = useState(p?.last ?? "");
-  const [kind, setKind] = useState<ContactKind>(p?.contact?.kind ?? "insta");
-  const [contact, setContact] = useState(p?.contact?.value ?? "");
-  const [dispo, setDispo] = useState(p?.dispo ?? "");
+  const [contact, setContact] = useState(p?.contact ? (p.contact.kind === "insta" ? "@" : "") + p.contact.value : "");
+  const [lunch, setLunch] = useState<Lunch>(p?.lunch ?? {});
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState(false);
-  const read = summary(parseDispo(dispo));
 
   const save = async () => {
     setBusy(true);
-    try { await act("/player", { id: p?.id, first, last, contactKind: kind, contact, dispo }, p ? "Fiche enregistrée" : "Joueur ajouté"); onClose(); }
+    try { await act("/player", { id: p?.id, first, last, contact, lunch }, p ? "Fiche enregistrée" : "Joueur ajouté"); onClose(); }
     catch { /* le message est déjà affiché */ }
     finally { setBusy(false); }
   };
@@ -109,14 +107,12 @@ function PlayerPanel({ player: p, onClose }: { player: PlayerView | null; onClos
           <Field label="Prénom"><input value={first} onChange={(e) => setFirst(e.target.value)} autoFocus={!p} /></Field>
           <Field label="Nom"><input value={last} onChange={(e) => setLast(e.target.value)} /></Field>
         </div>
+        <Field label="Contact" hint="Instagram, téléphone ou email : reconnu tout seul."><input value={contact} onChange={(e) => setContact(e.target.value)} placeholder="@pseudo, 06…, mail" /></Field>
         <div className="t-field">
-          <span>Contact</span>
-          <Segmented label="Type de contact" active={kind} onChange={setKind} items={(Object.keys(CONTACT) as ContactKind[]).map((k) => ({ id: k, label: CONTACT[k].label }))} />
-          <input value={contact} onChange={(e) => setContact(e.target.value)} placeholder={kind === "insta" ? "pseudo" : kind === "tel" ? "06 12 34 56 78" : "prenom@exemple.fr"} />
+          <span>Pause du midi</span>
+          <LunchEditor value={lunch} onChange={setLunch} days={st.days} from={st.lunchFrom} to={st.lunchTo} />
+          {p?.dispo && <small className="muted">Écrit à l'inscription : {p.dispo}</small>}
         </div>
-        <Field label="Disponibilités" hint={read ? `Compris : ${read}` : "Texte libre, comme dans le formulaire."}>
-          <textarea rows={3} value={dispo} onChange={(e) => setDispo(e.target.value)} placeholder="Ex. mardi midi, jeudi après 17h" />
-        </Field>
         {p?.mate && <p className="muted small">En équipe avec {p.mate}. Les équipes se modifient dans Équipes.</p>}
       </div>
     </Panel>

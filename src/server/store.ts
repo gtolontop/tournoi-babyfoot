@@ -23,7 +23,7 @@ export const uid = (n = 9) => crypto.randomBytes(n).toString("base64url");
 
 const defaults = (): State => ({
   v: 2,
-  settings: { name: "Tournoi de baby-foot", date: "", place: "", welcome: "", open: true, publicBoard: true, tables: 1, matchMinutes: 10 },
+  settings: { name: "Tournoi de baby-foot", date: "", place: "", welcome: "", open: true, publicBoard: true, tables: 1, matchMinutes: 10, days: [0, 1, 2, 3, 4], lunchFrom: 11 * 60, lunchTo: 14 * 60 },
   players: [],
   teams: [],
   tournament: null,
@@ -38,11 +38,11 @@ const defaults = (): State => ({
 function migrate(raw: any): State {
   const s = defaults();
   if (!raw || typeof raw !== "object") return s;
-  if (raw.v === 2) return { ...s, ...raw, settings: { ...s.settings, ...raw.settings } };
+  if (raw.v === 2) return { ...s, ...raw, settings: { ...s.settings, ...raw.settings }, players: (raw.players ?? []).map((p: Player) => ({ ...p, lunch: p.lunch ?? {} })) };
   const labels = new Map<string, string>((raw.settings?.slots ?? []).map((x: any) => [x.id, x.label]));
-  s.settings = { ...s.settings, name: raw.settings?.name ?? s.settings.name, date: raw.settings?.date ?? "", place: raw.settings?.place ?? "", welcome: raw.settings?.subtitle ?? "", open: raw.settings?.open ?? true, publicBoard: raw.settings?.publicBoard ?? true, tables: raw.settings?.tables ?? 1, matchMinutes: raw.settings?.matchMinutes ?? 10 };
+  s.settings = { ...s.settings, days: s.settings.days, name: raw.settings?.name ?? s.settings.name, date: raw.settings?.date ?? "", place: raw.settings?.place ?? "", welcome: raw.settings?.subtitle ?? "", open: raw.settings?.open ?? true, publicBoard: raw.settings?.publicBoard ?? true, tables: raw.settings?.tables ?? 1, matchMinutes: raw.settings?.matchMinutes ?? 10 };
   s.players = (raw.players ?? []).map((p: any): Player => ({
-    id: p.id, first: p.first, last: p.last, contact: guessContact(p.contact ?? ""),
+    id: p.id, first: p.first, last: p.last, contact: guessContact(p.contact ?? ""), lunch: {},
     dispo: [...(p.slots ?? []).map((id: string) => labels.get(id)).filter(Boolean), p.note].filter(Boolean).join(", "),
     by: p.by ?? "self", confirmed: p.confirmed ?? true, absent: !!p.absent, at: p.at ?? Date.now(),
   }));

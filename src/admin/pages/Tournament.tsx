@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { ArrowLeftRight, ExternalLink, Minus, Plus, Trophy } from "lucide-react";
+import { ArrowLeftRight, CalendarClock, ExternalLink, Minus, Plus, Trophy } from "lucide-react";
+import { DAY_NAMES, DAY_SHORT, fmt, steps, summary } from "../../shared/lunch";
 import type { Format, MatchView } from "../../shared/types";
 import { useStore } from "../lib/api";
 import { cx, duration, plural } from "../lib/ui";
@@ -63,7 +64,7 @@ function Setup() {
             <Trophy size={15} />Lancer avec {n} équipes
           </Button>
         </Block>
-        <Block title={`Équipes engagées · ${n}/${ready.length}`} sub={view.best ? `Créneau qui en réunit le plus : ${view.best.label.toLowerCase()}.` : undefined} flush>
+        <Block title={`Équipes engagées · ${n}/${ready.length}`} sub={view.best ? `Créneau qui en réunit le plus : ${DAY_NAMES[view.best.day].toLowerCase()} ${fmt(view.best.s)} – ${fmt(view.best.e)}.` : undefined} flush>
           <div className="t-picks">
             {ready.map((t) => (
               <label key={t.id} className="t-pick">
@@ -85,7 +86,7 @@ const roundName = (r: number, total: number) => {
 };
 
 function Running() {
-  const { view, act, canEdit } = useStore();
+  const { view, act, canEdit, toast } = useStore();
   const t = view.tournament!;
   const [score, setScore] = useState<MatchView | null>(null);
   const [swap, setSwap] = useState(false);
@@ -98,11 +99,14 @@ function Running() {
     <div className="ui-page">
       <Head title="Tournoi" sub={`${t.format === "rr" ? "Championnat" : "Élimination directe"}, ${t.teams.length} équipes, ${t.played} matchs joués sur ${t.total}.`}>
         {view.settings.publicBoard && <a className="ui-btn" href="/tableau" target="_blank" rel="noreferrer"><ExternalLink size={15} />Tableau public</a>}
+        {canEdit && <Button tone="primary" onClick={() => act("/tournament/plan", {}).then((r: any) => toast(r?.missing ? `${plural(r.placed, "match calé", "matchs calés")}, ${r.missing} sans pause commune` : `${plural(r?.placed ?? 0, "match calé", "matchs calés")} sur les pauses`), () => {})}><CalendarClock size={15} />Caler les matchs</Button>}
         {canEdit && <Button onClick={() => setSwap(true)}><ArrowLeftRight size={15} />Remplacer une équipe</Button>}
         {canEdit && <Button tone="danger" onClick={() => setReset(true)}>Réinitialiser</Button>}
       </Head>
       <div className="t-progress" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}><i style={{ width: `${pct}%` }} /></div>
       {t.champion && <div className="t-champ"><Trophy size={22} /><span><small>Vainqueur</small><b>{t.champion}</b></span></div>}
+
+      <Planning onOpen={canEdit ? setScore : undefined} />
 
       {t.format === "elim" ? (
         <Block flush>
@@ -153,6 +157,37 @@ function Running() {
   );
 }
 
+// Les matchs calés, jour par jour, dans l'ordre de passage.
+function Planning({ onOpen }: { onOpen?: (m: MatchView) => void }) {
+  const { view } = useStore();
+  const t = view.tournament!;
+  const mm = view.settings.matchMinutes;
+  const todo = t.matches.filter((m) => m.a && m.b && !m.bye && !m.w && m.sa == null);
+  if (!todo.length) return null;
+  const set = todo.filter((m) => m.when);
+  const days = view.settings.days.map((d) => ({ d, ms: set.filter((m) => m.when!.day === d).sort((a, b) => a.when!.start - b.when!.start) })).filter((x) => x.ms.length);
+  const left = todo.length - set.length;
+  return (
+    <Block title="Planning" sub={set.length ? `${plural(set.length, "match prévu", "matchs prévus")} sur les pauses du midi${left ? `, ${left} à caler` : ""}.` : "Aucun match calé. « Caler les matchs » les place sur les pauses communes."} flush>
+      {days.length > 0 && (
+        <div className="t-plan">
+          {days.map(({ d, ms }) => (
+            <section key={d}>
+              <header>{DAY_NAMES[d]}</header>
+              {ms.map((m) => (
+                <button key={m.id} type="button" className="t-plan-row" disabled={!onOpen} onClick={() => onOpen?.(m)}>
+                  <span className="k-num">{fmt(m.when!.start)}–{fmt(m.when!.start + mm)}</span>
+                  <b className="ellipsis">{m.an} <i>contre</i> {m.bn}</b>
+                </button>
+              ))}
+            </section>
+          ))}
+        </div>
+      )}
+    </Block>
+  );
+}
+
 function MatchCard({ m, onOpen }: { m: MatchView; onOpen?: (m: MatchView) => void }) {
   const playable = !!(m.a && m.b && !m.bye);
   const live = playable && !m.w && m.sa == null;
@@ -169,7 +204,12 @@ function MatchCard({ m, onOpen }: { m: MatchView; onOpen?: (m: MatchView) => voi
     <button type="button" className={cx("t-match", live && "live")} disabled={!playable || !onOpen} onClick={() => onOpen?.(m)}>
       {side(m.an, m.sa, "a")}
       {side(m.bn, m.sb, "b")}
-      {m.table && <span className="t-match-meta">Table {m.table}</span>}
+      {(m.when || m.table || (live && !m.fits)) && (
+        <span className="t-match-meta">
+          {m.when ? `${DAY_SHORT[m.when.day]} ${fmt(m.when.start)}` : live && !m.fits ? "Pas de pause commune" : ""}
+          {m.table && `${m.when ? " · " : ""}Table ${m.table}`}
+        </span>
+      )}
     </button>
   );
 }
@@ -179,6 +219,12 @@ function ScorePanel({ m, rr, onClose }: { m: MatchView; rr: boolean; onClose: ()
   const [sa, setSa] = useState(m.sa ?? 0);
   const [sb, setSb] = useState(m.sb ?? 0);
   const [table, setTable] = useState(m.table ?? "");
+  const { view } = useStore();
+  const st = view.settings;
+  const [day, setDay] = useState(m.when ? String(m.when.day) : "");
+  const [start, setStart] = useState(m.when ? String(m.when.start) : "");
+  const when = day !== "" && start !== "" ? { day: Number(day), start: Number(start) } : null;
+  const sameWhen = JSON.stringify(when) === JSON.stringify(m.when ?? null);
   const send = async (body: object, msg: string) => { try { await act("/match", { id: m.id, table, ...body }, msg); onClose(); } catch {} };
   const step = (v: number, set: (n: number) => void, d: number) => set(Math.max(0, Math.min(99, v + d)));
   const Side = ({ name, v, set }: { name: string; v: number; set: (n: number) => void }) => (
@@ -203,6 +249,21 @@ function ScorePanel({ m, rr, onClose }: { m: MatchView; rr: boolean; onClose: ()
           <Side name={m.an!} v={sa} set={setSa} />
           <span className="t-score-vs">–</span>
           <Side name={m.bn!} v={sb} set={setSb} />
+        </div>
+        <div className="t-field">
+          <span>Créneau</span>
+          <small className="muted">{m.windows.length ? `Les quatre mangent : ${summary(m.windows)}` : "Aucune pause commune aux quatre joueurs."}</small>
+          <div className="t-pair">
+            <select value={day} onChange={(e) => setDay(e.target.value)} aria-label="Jour">
+              <option value="">Jour</option>
+              {st.days.map((d) => <option key={d} value={d}>{DAY_NAMES[d]}</option>)}
+            </select>
+            <select value={start} onChange={(e) => setStart(e.target.value)} aria-label="Heure">
+              <option value="">Heure</option>
+              {steps(st.lunchFrom, st.lunchTo - st.matchMinutes, 5).map((x) => <option key={x} value={x}>{fmt(x)}</option>)}
+            </select>
+          </div>
+          {!sameWhen && <div><Button size="small" onClick={() => send({ when }, when ? "Créneau enregistré" : "Créneau retiré")}>{when ? "Enregistrer le créneau" : "Retirer le créneau"}</Button></div>}
         </div>
         <Field label="Table"><input value={table} onChange={(e) => setTable(e.target.value)} placeholder="1" maxLength={12} /></Field>
         <div className="t-field">

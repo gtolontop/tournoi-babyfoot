@@ -184,3 +184,40 @@ a.ui-btn.quiet { border-color: transparent; background: transparent; box-shadow:
   .t-qr-side { min-width: 0; width: 100%; }
   .k-stat-grid { gap: var(--s-3); }
 }
+
+/* Pause du midi : éditeur de la fiche joueur */
+.t-lunch { display: grid; border: 1px solid var(--line); border-radius: var(--r-md, 10px); overflow: hidden; }
+.t-lunch-row { display: grid; grid-template-columns: 1fr 86px 86px; gap: 6px; align-items: center; padding: 5px 5px 5px 12px; font-weight: 400; color: var(--muted); }
+.t-lunch-row + .t-lunch-row { border-top: 1px solid var(--line); }
+.t-lunch-row.on { color: var(--text); font-weight: 500; }
+.t-field .t-lunch-row select { height: 32px; text-align: center; font-variant-numeric: tabular-nums; }
+
+/* Pause du midi : carte de chaleur de l'aperçu */
+.t-heat { display: grid; gap: 5px; }
+.t-heat-row { display: grid; grid-template-columns: 52px minmax(0, 1fr); gap: 10px; align-items: center; }
+.t-heat-row > span { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--text-2); }
+.t-heat-row > span small { color: var(--faint); font-size: 11.5px; }
+.t-heat-row > div { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 3px; height: 26px; }
+.t-heat .t-heat-row > div > i { display: block; width: auto; height: auto; min-width: 0; margin: 0; padding: 0; border-radius: 4px; background: var(--ink); }
+.t-heat .t-heat-row > div > i.empty { background: var(--surface); }
+.t-heat .t-heat-row > div > i.best { outline: 2px solid var(--ink); outline-offset: 1px; }
+.t-heat .t-heat-ticks > div { position: relative; display: block; height: 16px; }
+.t-heat .t-heat-ticks > div > i { display: block; height: auto; background: none; border-radius: 0; position: absolute; top: 0; transform: translateX(-50%); font-style: normal; font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; }
+.t-heat .t-heat-ticks > div > i:first-child { transform: none; }
+.t-heat .t-heat-ticks > div > i:last-child { transform: translateX(-100%); }
+
+/* Planning des matchs */
+.t-plan { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); }
+.t-plan section { padding: var(--s-3, 12px) var(--s-4, 16px) var(--s-4, 16px); border-top: 1px solid var(--line); }
+.t-plan header { font-size: 12px; font-weight: 500; color: var(--muted); margin-bottom: 6px; }
+.t-plan-row { display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 8px; width: 100%; padding: 7px 0; border: 0; border-bottom: 1px solid var(--line); background: none; text-align: left; font-size: 13px; color: var(--text); cursor: pointer; }
+.t-plan-row:last-child { border-bottom: 0; }
+.t-plan-row:disabled { cursor: default; }
+.t-plan-row span { color: var(--muted); }
+.t-plan-row b { font-weight: 550; }
+.t-plan-row i { font-style: normal; font-weight: 400; color: var(--faint); }
+
+/* Jours de tournoi */
+.t-days { display: flex; gap: 6px; margin-bottom: var(--s-4, 16px); }
+.t-day { flex: 1; height: 36px; border: 1px solid var(--line-strong); border-radius: 9px; background: var(--bg); color: var(--muted); font: inherit; font-size: 13px; font-weight: 500; cursor: pointer; }
+.t-day.on { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }

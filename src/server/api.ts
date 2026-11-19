@@ -64,10 +64,10 @@ api.get("/qr", async (c) => {
 
 api.get("/export.csv", (c) => {
   const q = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const rows = [["Prénom", "Nom", "Contact", "Type", "Équipe", "Coéquipier", "Pause du midi", "Absent", "Inscrit le"]];
+  const rows = [["Prénom", "Nom", "Contact", "Type", "Équipe", "Coéquipier", "Pause du midi", "Autre chose", "Absent", "Inscrit le"]];
   for (const p of state.players) {
     const t = teamOf(p.id);
-    rows.push([p.first, p.last, p.contact?.value ?? "", p.contact?.kind ?? "", t ? teamName(t) : "", t ? fullName(P(t.a === p.id ? t.b : t.a)) : "", summary(p.lunch) || p.dispo, p.absent ? "oui" : "", new Date(p.at).toLocaleString("fr-FR", { timeZone: "Europe/Paris" })]);
+    rows.push([p.first, p.last, p.contact?.value ?? "", p.contact?.kind ?? "", t ? teamName(t) : "", t ? fullName(P(t.a === p.id ? t.b : t.a)) : "", summary(p.lunch) || p.dispo, p.note ?? "", p.absent ? "oui" : "", new Date(p.at).toLocaleString("fr-FR", { timeZone: "Europe/Paris" })]);
   }
   return c.body("﻿" + rows.map((r) => r.map(q).join(";")).join("\r\n"), 200, { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": 'attachment; filename="inscriptions.csv"' });
 });
@@ -89,7 +89,7 @@ const writes: Record<string, Fn> = {
     if (b.tables !== undefined) s.tables = Math.max(1, Math.min(20, Number(b.tables) || 1));
     if (b.matchMinutes !== undefined) s.matchMinutes = Math.max(2, Math.min(90, Number(b.matchMinutes) || 10));
     if (Array.isArray(b.days)) { const d = [...new Set(b.days.map(Number).filter((x: number) => Number.isInteger(x) && x >= 0 && x < 5))].sort() as number[]; must(d.length, "Garde au moins un jour."); s.days = d; }
-    const t = (v: unknown, def: number) => { const n = Math.round(Number(v) / 15) * 15; return Number.isFinite(n) ? Math.max(9 * 60, Math.min(16 * 60, n)) : def; };
+    const t = (v: unknown, def: number) => { const n = Math.round(Number(v) / 5) * 5; return Number.isFinite(n) ? Math.max(9 * 60, Math.min(16 * 60, n)) : def; };
     if (b.lunchFrom !== undefined || b.lunchTo !== undefined) {
       const from = t(b.lunchFrom ?? s.lunchFrom, s.lunchFrom), to = t(b.lunchTo ?? s.lunchTo, s.lunchTo);
       must(to - from >= 30, "La pause doit durer au moins 30 minutes.");

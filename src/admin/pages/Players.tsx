@@ -28,7 +28,7 @@ export function Players() {
     const k = fold(q.trim());
     return view.players
       .filter((p) => filter === "all" || (filter === "solo" ? !p.team && !p.absent : filter === "team" ? !!p.team : p.absent))
-      .filter((p) => !k || fold(`${p.first} ${p.last} ${p.mate ?? ""} ${p.contact?.value ?? ""} ${p.summary} ${p.dispo}`).includes(k))
+      .filter((p) => !k || fold(`${p.first} ${p.last} ${p.mate ?? ""} ${p.contact?.value ?? ""} ${p.summary} ${p.dispo} ${p.note ?? ""}`).includes(k))
       .sort((a, b) => b.at - a.at);
   }, [view.players, filter, q]);
 
@@ -62,6 +62,7 @@ export function Players() {
             { key: "name", label: "Joueur", cell: (p) => (
               <span className="t-name">
                 <b className={p.absent ? "t-strike" : ""}>{p.first} {p.last}</b>
+                {p.note && <small className="t-note-line" title={p.note}>« {p.note} »</small>}
                 <small>{p.by === "partner" ? (p.confirmed ? "inscrit par son coéquipier, confirmé" : "inscrit par son coéquipier") : p.by === "staff" ? "ajouté par l'organisation" : ago(p.at)}</small>
               </span>
             ) },
@@ -113,6 +114,7 @@ function PlayerPanel({ player: p, onClose }: { player: PlayerView | null; onClos
           <LunchEditor value={lunch} onChange={setLunch} days={st.days} from={st.lunchFrom} to={st.lunchTo} />
           {p?.dispo && <small className="muted">Écrit à l'inscription : {p.dispo}</small>}
         </div>
+        {p?.note && <div className="t-field"><span>Autre chose</span><p className="t-note">{p.note}</p></div>}
         {p?.mate && <p className="muted small">En équipe avec {p.mate}. Les équipes se modifient dans Équipes.</p>}
       </div>
     </Panel>

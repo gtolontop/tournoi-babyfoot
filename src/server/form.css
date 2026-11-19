@@ -28,7 +28,11 @@ input[type="text"], input[type="tel"], input[type="email"], textarea, select {
 textarea { height: auto; min-height: 92px; padding: 13px 14px; resize: none; line-height: 1.45; }
 input:focus, textarea:focus { border-color: var(--text); box-shadow: 0 0 0 3px var(--surface); }
 input::placeholder, textarea::placeholder { color: var(--faint); }
-.hint { font-size: 13px; color: var(--faint); }
+.hint { font-size: 13px; line-height: 1.4; color: var(--faint); }
+.duo-hint { display: none; }
+form:has(#m-duo:checked) .duo-hint { display: block; }
+form:has(#m-duo:checked) .solo-hint { display: none; }
+input.note { height: 44px; font-size: 15px; border-color: var(--line); }
 
 /* La pause du midi : une ligne par jour, deux heures. */
 .lunch { display: flex; flex-direction: column; border: 1px solid var(--line-strong); border-radius: 12px; overflow: hidden; }
@@ -37,7 +41,7 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .day span { font-size: 15px; color: var(--muted); transition: color .15s; }
 .day i { font-style: normal; text-align: center; font-size: 13px; color: var(--faint); }
 .day select { height: 40px; padding: 0 10px; border-radius: 9px; border-color: transparent; background: var(--surface); text-align: center; text-align-last: center; font-variant-numeric: tabular-nums; cursor: pointer; }
-.day:has(option:checked:not([value=""])) span { color: var(--text); font-weight: 500; }
+.day:has(select:first-of-type option:checked:not([value=""])):has(select:last-of-type option:checked:not([value=""])) span { color: var(--text); font-weight: 500; }
 .day:has(select:first-of-type option:checked:not([value=""])) select:first-of-type, .day:has(select:last-of-type option:checked:not([value=""])) select:last-of-type { background: var(--bg); border-color: var(--line-strong); }
 .copy { appearance: none; border: 0; background: none; padding: 0; font: inherit; font-size: 13px; color: var(--muted); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 
@@ -49,8 +53,10 @@ input::placeholder, textarea::placeholder { color: var(--faint); }
 .seg label:has(input:checked) { background: var(--bg); color: var(--text); box-shadow: var(--shadow-sm), 0 0 0 1px var(--line); }
 .seg label:has(input:focus-visible) { box-shadow: 0 0 0 2px var(--text); }
 
-.mate { display: none; }
-form:has(#m-duo:checked) .mate { display: grid; }
+.mate { display: none; flex-direction: column; gap: 10px; margin-top: 4px; }
+form:has(#m-duo:checked) .mate { display: flex; }
+.sub { display: flex; align-items: center; gap: 14px; margin-top: 8px; font-size: 13px; font-weight: 500; color: var(--text-2); }
+.sub span { flex: 1; }
 
 .err { display: none; padding: 12px 14px; border-radius: 12px; background: var(--danger-soft); color: var(--danger); font-size: 14px; }
 .err.on { display: block; }

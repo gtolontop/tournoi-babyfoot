@@ -11,6 +11,7 @@ export type Player = {
   contact: Contact | null;
   lunch: Lunch; // pause du midi, jour par jour
   dispo: string; // ancienne disponibilité écrite, gardée pour les premières inscriptions
+  note?: string; // « autre chose » laissé dans le formulaire
   by: "self" | "partner" | "staff";
   confirmed: boolean;
   absent: boolean;

@@ -26,7 +26,7 @@ export function ContactLink({ c }: { c: Contact | null }) {
 
 // L'éditeur de pause du midi de la fiche joueur : une ligne par jour, deux heures.
 export function LunchEditor({ value, onChange, days, from, to }: { value: Lunch; onChange: (l: Lunch) => void; days: number[]; from: number; to: number }) {
-  const opts = steps(from, to, 15);
+  const opts = steps(from, to);
   const set = (d: number, i: 0 | 1, v: string) => {
     const next = { ...value };
     if (!v) delete next[d];

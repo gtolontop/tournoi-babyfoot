@@ -185,6 +185,9 @@ a.ui-btn.quiet { border-color: transparent; background: transparent; box-shadow:
   .k-stat-grid { gap: var(--s-3); }
 }
 
+.t-note { margin: 0; padding: 10px 12px; border-radius: 10px; background: var(--surface); font-weight: 400; color: var(--text); white-space: pre-wrap; }
+.t-note-line { display: block; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--text-2) !important; }
+
 /* Pause du midi : éditeur de la fiche joueur */
 .t-lunch { display: grid; border: 1px solid var(--line); border-radius: var(--r-md, 10px); overflow: hidden; }
 .t-lunch-row { display: grid; grid-template-columns: 1fr 86px 86px; gap: 6px; align-items: center; padding: 5px 5px 5px 12px; font-weight: 400; color: var(--muted); }

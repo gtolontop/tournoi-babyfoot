@@ -1,6 +1,6 @@
 // Les règles du tournoi : inscriptions, équipes, tableau, classement, calage des matchs sur les pauses du midi, et la
 // vue envoyée à l'espace d'organisation.
-import { cleanLunch, DAY_NAMES, fmt, intersect, steps, summary, total, type Lunch, type Window } from "../shared/lunch.ts";
+import { cleanLunch, DAY_NAMES, fmt, intersect, STEP, steps, summary, total, type Lunch, type Window } from "../shared/lunch.ts";
 import type { Contact, Estimate, Format, Match, Player, Team, View } from "../shared/types.ts";
 import { logEvent, save, state, uid, type Session } from "./store.ts";
 
@@ -70,11 +70,9 @@ export function register(d: Record<string, unknown>): Recap {
   if (duo) must(mf && ml, "Indique le prénom et le nom de ton coéquipier.");
   if (duo) must(norm(mf + ml) !== norm(first + last), "Ton coéquipier ne peut pas être toi.");
   const contact = readContact(d.contact);
-  // Avec le script : lunch = { jour: [début, fin] }. Sans script : les champs l{jour}s / l{jour}e du formulaire.
-  const rawLunch = d.lunch ? (typeof d.lunch === "string" ? safeJson(d.lunch) : d.lunch)
-    : Object.fromEntries([0, 1, 2, 3, 4].map((i) => [i, [d[`l${i}s`], d[`l${i}e`]]]).filter(([, r]) => (r as unknown[]).every((x) => x !== "" && x != null)));
-  const lunch = readLunch(rawLunch);
-  must(Object.keys(lunch).length, "Indique au moins un jour où tu manges au lycée.");
+  const lunch = lunchField(d, "lunch", "l");
+  const mlunch = lunchField(d, "mlunch", "m");
+  const note = clean(d.note, 300);
   must(state.players.length < 2000, "Trop d'inscriptions.");
 
   const key = norm(`${first} ${last}`);
@@ -82,14 +80,14 @@ export function register(d: Record<string, unknown>): Recap {
   if (existing) {
     // Son coéquipier l'avait inscrit : il complète sa fiche avec ses propres horaires.
     must(existing.by === "partner" && !existing.confirmed, `${first} ${last} est déjà inscrit. Si c'est une erreur, préviens l'organisation.`);
-    Object.assign(existing, { lunch, contact: contact ?? existing.contact, confirmed: true });
+    Object.assign(existing, { lunch, contact: contact ?? existing.contact, note: note || existing.note, confirmed: true });
     logEvent(`${fullName(existing)} a confirmé son inscription`);
     save();
     const m = mateOf(existing.id);
     return { title: "Inscription confirmée", text: m ? `${fullName(m)} t'avait déjà inscrit. Tes horaires sont à jour.` : "Ta fiche est à jour.", lines: recap(existing) };
   }
 
-  const me: Player = { id: uid(6), first, last, contact, lunch, dispo: "", by: "self", confirmed: true, absent: false, at: Date.now() };
+  const me: Player = { id: uid(6), first, last, contact, lunch, dispo: "", note, by: "self", confirmed: true, absent: false, at: Date.now() };
   state.players.push(me);
   if (duo) {
     let mate = state.players.find((p) => p.id !== me.id && norm(`${p.first} ${p.last}`) === norm(`${mf} ${ml}`));
@@ -103,9 +101,9 @@ export function register(d: Record<string, unknown>): Recap {
       }
       if (mateTeam.a) mateTeam.b = me.id; else mateTeam.a = me.id;
     } else {
-      // Le coéquipier prend les mêmes horaires en attendant qu'il s'inscrive lui-même.
+      // Le coéquipier garde les horaires donnés pour lui ; il pourra les corriger en s'inscrivant lui-même.
       if (!mate) {
-        mate = { id: uid(6), first: mf, last: ml, contact: null, lunch: { ...lunch }, dispo: "", by: "partner", confirmed: false, absent: false, at: Date.now() };
+        mate = { id: uid(6), first: mf, last: ml, contact: null, lunch: mlunch, dispo: "", by: "partner", confirmed: false, absent: false, at: Date.now() };
         state.players.push(mate);
       }
       state.teams.push({ id: uid(6), a: me.id, b: mate.id, name: "", origin: "duo", at: Date.now() });
@@ -115,11 +113,18 @@ export function register(d: Record<string, unknown>): Recap {
   save();
   return {
     title: "Inscription envoyée",
-    text: duo ? `On a noté vos horaires. ${mf} peut aussi s'inscrire pour mettre les siens.` : "On te trouve un coéquipier et on te dit quand tu joues.",
+    text: duo ? `On a noté vos horaires à tous les deux. On vous dit quand vous jouez.` : "On te trouve un coéquipier et on te dit quand tu joues.",
     lines: recap(me),
   };
 }
 const safeJson = (s: string) => { try { return JSON.parse(s); } catch { return null; } };
+// Avec le script : { jour: [début, fin] }. Sans script : les champs {p}{jour}s / {p}{jour}e. Une heure manquante = pas là ce jour.
+function lunchField(d: Record<string, unknown>, key: string, p: string) {
+  const v = d[key];
+  const raw = v ? (typeof v === "string" ? safeJson(v) : v)
+    : Object.fromEntries([0, 1, 2, 3, 4].map((i) => [i, [d[`${p}${i}s`], d[`${p}${i}e`]]]).filter(([, r]) => (r as unknown[]).every((x) => x !== "" && x != null)));
+  return readLunch(raw);
+}
 
 function recap(p: Player): [string, string][] {
   const out: [string, string][] = [["Joueur", fullName(p)]];
@@ -127,6 +132,8 @@ function recap(p: Player): [string, string][] {
   out.push(["Coéquipier", m ? fullName(m) : "À trouver"]);
   if (p.contact) out.push(["Contact", p.contact.kind === "insta" ? "@" + p.contact.value : p.contact.value]);
   for (const [d, r] of Object.entries(p.lunch)) out.push([DAY_NAMES[Number(d)], `${fmt(r![0])} – ${fmt(r![1])}`]);
+  if (!Object.keys(p.lunch).length) out.push(["Horaires", "Non renseignés"]);
+  if (p.note) out.push(["Autre chose", p.note]);
   return out;
 }
 
@@ -319,7 +326,7 @@ export function view(sess: Session): View {
   const present = state.players.filter((p) => !p.absent);
 
   // Joueurs libres à chaque quart d'heure, et le moment qui réunit le plus d'équipes complètes pour un match entier.
-  const step = 15;
+  const step = STEP;
   const grid = steps(lunchFrom, lunchTo - step, step);
   const heat = {
     from: lunchFrom, to: lunchTo, step,

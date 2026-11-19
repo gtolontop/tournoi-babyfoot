@@ -1,42 +1,51 @@
-// Le script du formulaire public, mis en ligne dans la page : la pause du midi se remplit vite (fin proposée une heure
-// après le début, « pareil tous les jours »), l'envoi se fait sans recharger. Sans script, le formulaire s'envoie quand
-// même (POST /inscription).
+// Le script du formulaire public, mis en ligne dans la page : les pauses du midi se remplissent vite (fin proposée une
+// heure après le début, « pareil tous les jours », « comme moi » pour le coéquipier), l'envoi se fait sans recharger.
+// Sans script, le formulaire s'envoie quand même (POST /inscription).
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 const form = $<HTMLFormElement>("f");
 const err = $<HTMLParagraphElement>("err");
 const go = $<HTMLButtonElement>("go");
-const copy = $<HTMLButtonElement>("copy");
-const days = [...document.querySelectorAll<HTMLElement>("#lunch .day")];
 
 const field = (name: string) => form.elements.namedItem(name) as HTMLInputElement;
+const rows = (p: string) => [...form.querySelectorAll<HTMLElement>(`[data-lunch="${p}"] .day`)];
 const pair = (row: HTMLElement) => row.querySelectorAll("select") as NodeListOf<HTMLSelectElement>;
-const filled = () => days.filter((r) => { const [s, e] = pair(r); return s.value && e.value; });
+// Un jour compte seulement si le début et la fin sont remplis ; sinon le joueur n'est pas là ce jour-là.
+const filled = (p: string) => rows(p).filter((r) => { const [s, e] = pair(r); return s.value && e.value; });
+const copyBtn = (p: string) => form.querySelector<HTMLButtonElement>(`[data-copy="${p}"]`)!;
+const syncCopy = (p: string) => { copyBtn(p).hidden = filled(p).length !== 1 || rows(p).length < 2; };
 
 // Choisir le début propose la fin une heure plus tard ; la fin ne peut pas précéder le début.
 function onSelect(sel: HTMLSelectElement) {
   const row = sel.closest(".day") as HTMLElement;
   const [s, e] = pair(row);
   const opts = [...e.options].map((o) => o.value).filter(Boolean).map(Number);
-  if (sel === s) {
-    if (!s.value) e.value = "";
-    else if (!e.value || Number(e.value) <= Number(s.value)) {
-      const want = Number(s.value) + 60;
-      e.value = String(opts.find((m) => m >= want) ?? opts[opts.length - 1]);
-    }
-  } else if (e.value && (!s.value || Number(s.value) >= Number(e.value))) {
+  if (sel === s && s.value && (!e.value || Number(e.value) <= Number(s.value))) {
+    const want = Number(s.value) + 60;
+    e.value = String(opts.find((m) => m >= want) ?? opts[opts.length - 1]);
+  } else if (sel === e && e.value && s.value && Number(s.value) >= Number(e.value)) {
     const want = Number(e.value) - 60;
     s.value = String([...opts].reverse().find((m) => m <= want) ?? opts[0]);
-  } else if (!e.value) s.value = "";
-  copy.hidden = filled().length !== 1 || days.length < 2;
+  }
+  syncCopy((sel.closest("[data-lunch]") as HTMLElement).dataset.lunch!);
 }
 
-copy.addEventListener("click", () => {
-  const src = filled()[0];
-  if (!src) return;
-  const [s, e] = pair(src);
-  for (const r of days) { const [a, b] = pair(r); a.value = s.value; b.value = e.value; }
-  copy.hidden = true;
+form.addEventListener("click", (e) => {
+  const b = (e.target as HTMLElement).closest("button");
+  if (!b) return;
+  if (b.dataset.copy) {
+    const p = b.dataset.copy;
+    const src = filled(p)[0];
+    if (!src) return;
+    const [s, en] = pair(src);
+    for (const r of rows(p)) { const [a, c] = pair(r); a.value = s.value; c.value = en.value; }
+    b.hidden = true;
+  }
+  if (b.hasAttribute("data-same")) {
+    const mine = rows("l"), his = rows("m");
+    mine.forEach((r, i) => { const [a, c] = pair(r), [x, y] = pair(his[i]); x.value = a.value; y.value = c.value; });
+    syncCopy("m");
+  }
 });
 
 form.addEventListener("change", (e) => {
@@ -51,6 +60,12 @@ const fail = (msg: string, el?: HTMLElement) => {
   el?.focus();
 };
 
+const lunchOf = (p: string) => {
+  const out: Record<string, [number, number]> = {};
+  for (const r of filled(p)) { const [s, e] = pair(r); out[r.dataset.day!] = [Number(s.value), Number(e.value)]; }
+  return out;
+};
+
 form.addEventListener("submit", async (e) => {
   e.preventDefault();
   err.classList.remove("on");
@@ -58,13 +73,12 @@ form.addEventListener("submit", async (e) => {
   const str = (k: string) => String(data[k] ?? "").trim();
   if (!str("first")) return fail("Indique ton prénom.", field("first"));
   if (!str("last")) return fail("Indique ton nom.", field("last"));
-  if (data.mode === "duo" && !str("mfirst")) return fail("Indique le prénom de ton coéquipier.", field("mfirst"));
-  if (data.mode === "duo" && !str("mlast")) return fail("Indique le nom de ton coéquipier.", field("mlast"));
-  const lunch: Record<string, [number, number]> = {};
-  for (const r of filled()) { const [s, e] = pair(r); lunch[r.dataset.day!] = [Number(s.value), Number(e.value)]; }
-  if (!Object.keys(lunch).length) return fail("Indique au moins un jour où tu manges.", pair(days[0])[0]);
-  for (const k of Object.keys(data)) if (/^l\d[se]$/.test(k)) delete data[k];
-  data.lunch = lunch;
+  const duo = data.mode === "duo";
+  if (duo && !str("mfirst")) return fail("Indique le prénom de ton coéquipier.", field("mfirst"));
+  if (duo && !str("mlast")) return fail("Indique le nom de ton coéquipier.", field("mlast"));
+  for (const k of Object.keys(data)) if (/^[lm]\d[se]$/.test(k)) delete data[k];
+  data.lunch = lunchOf("l");
+  if (duo) data.mlunch = lunchOf("m");
 
   go.disabled = true;
   go.textContent = "Envoi…";
@@ -99,7 +113,8 @@ form.addEventListener("submit", async (e) => {
 $<HTMLAnchorElement>("again").addEventListener("click", (e) => {
   e.preventDefault();
   form.reset();
-  copy.hidden = true;
+  syncCopy("l");
+  syncCopy("m");
   $("done").hidden = true;
   form.hidden = false;
   history.replaceState(null, "", "/");

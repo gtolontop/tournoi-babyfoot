@@ -12,8 +12,9 @@ export const fmt = (m: number) => `${Math.floor(m / 60)}h${m % 60 ? String(m % 6
 export const fmtRange = (r: Range) => `${fmt(r[0])} – ${fmt(r[1])}`;
 export const minutes = (a: number, b: number) => Math.max(0, b - a);
 
-// Les horaires proposés dans le formulaire : tous les quarts d'heure entre deux bornes.
-export function steps(from: number, to: number, step = 15) {
+// Les horaires proposés dans le formulaire, entre deux bornes.
+export const STEP = 10; // les horaires proposés vont de 10 en 10 minutes, comme les heures de cours (12h10, 13h10…)
+export function steps(from: number, to: number, step = STEP) {
   const out: number[] = [];
   for (let m = from; m <= to; m += step) out.push(m);
   return out;

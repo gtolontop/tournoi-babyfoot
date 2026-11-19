@@ -49,9 +49,9 @@ function Page({ title, children, script }: { title: string; children: Child; scr
 const meta = () => [state.settings.name, state.settings.date, state.settings.place].filter(Boolean).join(" · ");
 
 // Une ligne par jour : « Mar  12h – 13h ». Vide = ne mange pas au lycée ce jour-là.
-function LunchRows() {
+function LunchRows({ p }: { p: "l" | "m" }) {
   const s = state.settings;
-  const opts = steps(s.lunchFrom, s.lunchTo, 15);
+  const opts = steps(s.lunchFrom, s.lunchTo);
   const pick = (name: string, label: string) => (
     <select name={name} aria-label={label}>
       <option value="">—</option>
@@ -59,13 +59,13 @@ function LunchRows() {
     </select>
   );
   return (
-    <div class="lunch" id="lunch">
+    <div class="lunch" data-lunch={p}>
       {s.days.map((d) => (
         <div class="day" data-day={d}>
           <span>{DAY_NAMES[d]}</span>
-          {pick(`l${d}s`, `${DAY_NAMES[d]}, début`)}
+          {pick(`${p}${d}s`, `${DAY_NAMES[d]}, début`)}
           <i>à</i>
-          {pick(`l${d}e`, `${DAY_NAMES[d]}, fin`)}
+          {pick(`${p}${d}e`, `${DAY_NAMES[d]}, fin`)}
         </div>
       ))}
     </div>
@@ -111,6 +111,13 @@ export function FormPage({ ok }: { ok: boolean }) {
               <input type="text" name="last" placeholder="Nom" aria-label="Nom" autocomplete="family-name" autocapitalize="words" maxlength={40} required enterkeyhint="next" />
             </div>
             <input type="text" name="contact" placeholder="Insta, téléphone ou email" aria-label="Contact" autocomplete="off" autocapitalize="off" spellcheck={false} maxlength={80} enterkeyhint="next" />
+            <p class="hint">Facultatif. Pour te rappeler tes matchs et te prévenir s'il y a un changement.</p>
+          </fieldset>
+
+          <fieldset>
+            <legend>Tu manges de quand à quand ? <button type="button" class="copy" data-copy="l" hidden>Pareil tous les jours</button></legend>
+            <LunchRows p="l" />
+            <p class="hint">Facultatif. On te convoque pour jouer sur ces horaires. Laisse vide les jours où tu n'es pas là.</p>
           </fieldset>
 
           <fieldset>
@@ -119,15 +126,20 @@ export function FormPage({ ok }: { ok: boolean }) {
               <label><input type="radio" name="mode" value="solo" checked />Seul</label>
               <label><input type="radio" name="mode" value="duo" id="m-duo" />À deux</label>
             </div>
-            <div class="pair mate">
-              <input type="text" name="mfirst" placeholder="Prénom du coéquipier" aria-label="Prénom du coéquipier" autocapitalize="words" maxlength={40} />
-              <input type="text" name="mlast" placeholder="Nom" aria-label="Nom du coéquipier" autocapitalize="words" maxlength={40} />
+            <p class="hint solo-hint">On te met en équipe avec un autre joueur inscrit seul.</p>
+            <p class="hint duo-hint">Vous jouez ensemble. Indique aussi quand ton coéquipier mange.</p>
+            <div class="mate">
+              <div class="pair">
+                <input type="text" name="mfirst" placeholder="Prénom du coéquipier" aria-label="Prénom du coéquipier" autocapitalize="words" maxlength={40} />
+                <input type="text" name="mlast" placeholder="Nom" aria-label="Nom du coéquipier" autocapitalize="words" maxlength={40} />
+              </div>
+              <p class="sub"><span>Il mange de quand à quand ?</span><button type="button" class="copy" data-copy="m" hidden>Pareil tous les jours</button><button type="button" class="copy" data-same>Comme moi</button></p>
+              <LunchRows p="m" />
             </div>
           </fieldset>
 
           <fieldset>
-            <legend>Tu manges quand ? <button type="button" class="copy" id="copy" hidden>Pareil tous les jours</button></legend>
-            <LunchRows />
+            <input type="text" name="note" class="note" placeholder="Autre chose ?" aria-label="Autre chose" maxlength={300} enterkeyhint="send" />
           </fieldset>
 
           <input class="hp" type="text" name="website" tabindex={-1} autocomplete="off" aria-hidden="true" />

@@ -54,7 +54,7 @@ export function SettingsPage() {
 function LunchBlock() {
   const { view, act } = useStore();
   const s = view.settings;
-  const hours = steps(9 * 60, 16 * 60, 15);
+  const hours = steps(9 * 60, 16 * 60);
   const toggle = (d: number) => act("/settings", { days: s.days.includes(d) ? s.days.filter((x) => x !== d) : [...s.days, d] });
   return (
     <Block title="Pause du midi" sub="Les jours proposés dans le formulaire et les heures entre lesquelles on choisit.">

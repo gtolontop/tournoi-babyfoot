@@ -23,7 +23,7 @@ export const uid = (n = 9) => crypto.randomBytes(n).toString("base64url");
 
 const defaults = (): State => ({
   v: 2,
-  settings: { name: "Tournoi de baby-foot", date: "", place: "", welcome: "", open: true, publicBoard: true, tables: 1, matchMinutes: 10, days: [0, 1, 2, 3, 4], lunchFrom: 11 * 60, lunchTo: 14 * 60 },
+  settings: { name: "Tournoi de baby-foot", date: "", place: "", welcome: "", open: true, publicBoard: true, tables: 1, matchMinutes: 10, days: [0, 1, 2, 3, 4], lunchFrom: 12 * 60 + 10, lunchTo: 14 * 60 + 10 },
   players: [],
   teams: [],
   tournament: null,
